@@ -37,7 +37,7 @@ describe("LinearClient", () => {
   });
 
   test("fetches issues for a project", async () => {
-    const client = new LinearClient("test-key", fetchMock as typeof fetch);
+    const client = new LinearClient("test-key", fetchMock as unknown as typeof fetch);
     const result = await client.fetchProjectIssues("Backend API");
     expect(result.issues).toHaveLength(1);
     expect(result.issues[0]!.id).toBe("lin-1");
@@ -49,7 +49,7 @@ describe("LinearClient", () => {
   });
 
   test("sends correct GraphQL query", async () => {
-    const client = new LinearClient("test-key", fetchMock as typeof fetch);
+    const client = new LinearClient("test-key", fetchMock as unknown as typeof fetch);
     await client.fetchProjectIssues("Backend API");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const call = fetchMock.mock.calls[0];
@@ -60,7 +60,7 @@ describe("LinearClient", () => {
   });
 
   test("includes auth header", async () => {
-    const client = new LinearClient("my-api-key", fetchMock as typeof fetch);
+    const client = new LinearClient("my-api-key", fetchMock as unknown as typeof fetch);
     await client.fetchProjectIssues("X");
     const call = fetchMock.mock.calls[0];
     expect(call![1].headers["Authorization"]).toBe("my-api-key");
@@ -128,7 +128,7 @@ describe("LinearClient", () => {
       });
     });
 
-    const client = new LinearClient("key", pageFetch as typeof fetch);
+    const client = new LinearClient("key", pageFetch as unknown as typeof fetch);
     const result = await client.fetchProjectIssues("X");
     expect(result.issues).toHaveLength(2);
     expect(pageFetch).toHaveBeenCalledTimes(2);
@@ -151,7 +151,7 @@ describe("LinearClient", () => {
           }),
       })
     );
-    const client = new LinearClient("key", rateLimitFetch as typeof fetch);
+    const client = new LinearClient("key", rateLimitFetch as unknown as typeof fetch);
     const result = await client.fetchProjectIssues("X");
     expect(result.rateLimitLow).toBe(true);
   });
@@ -197,7 +197,7 @@ describe("LinearClient", () => {
           }),
       })
     );
-    const client = new LinearClient("key", relFetch as typeof fetch);
+    const client = new LinearClient("key", relFetch as unknown as typeof fetch);
     const result = await client.fetchProjectIssues("X");
     expect(result.issues[0]!.blocker_ids).toEqual(["lin-2"]);
   });
@@ -214,7 +214,7 @@ describe("LinearClient", () => {
           }),
       })
     );
-    const client = new LinearClient("key", updateFetch as typeof fetch);
+    const client = new LinearClient("key", updateFetch as unknown as typeof fetch);
     await client.updateIssueState("lin-1", "state-id-123");
     expect(updateFetch).toHaveBeenCalledTimes(1);
   });
@@ -231,7 +231,7 @@ describe("LinearClient", () => {
           }),
       })
     );
-    const client = new LinearClient("key", commentFetch as typeof fetch);
+    const client = new LinearClient("key", commentFetch as unknown as typeof fetch);
     await client.createComment("lin-1", "Hello from Feliz");
     expect(commentFetch).toHaveBeenCalledTimes(1);
   });

@@ -317,7 +317,7 @@ export class Database {
     sql += ` ORDER BY created_at ASC LIMIT ?${params.length + 1}`;
     params.push(limit);
 
-    const rows = this.db.query(sql).all(...params) as Record<
+    const rows = this.db.query(sql).all(...(params as [string, ...string[]])) as Record<
       string,
       unknown
     >[];
