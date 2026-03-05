@@ -14,10 +14,16 @@ export interface ScratchpadItem {
   content: string;
 }
 
+export interface SpecItem {
+  path: string;
+  content: string;
+}
+
 export interface AssembledContext {
   history: HistoryEntry[];
   memory: MemoryItem[];
   scratchpad: ScratchpadItem[];
+  specs: SpecItem[];
 }
 
 export class ContextAssembler {
@@ -33,13 +39,40 @@ export class ContextAssembler {
     projectId: string,
     workItemId: string,
     workDir: string | null,
-    runId?: string | null
+    runId?: string | null,
+    specDir?: string | null
   ): AssembledContext {
     const history = this.db.getHistory(projectId, workItemId, 50);
     const memory = workDir ? this.readMemory(workDir) : [];
     const scratchpad = runId ? this.readScratchpad(projectId, runId) : [];
+    const specs =
+      workDir && specDir ? this.readSpecs(workDir, specDir) : [];
 
-    return { history, memory, scratchpad };
+    return { history, memory, scratchpad, specs };
+  }
+
+  readSpecs(workDir: string, specDir: string): SpecItem[] {
+    const specsPath = join(workDir, specDir);
+    if (!existsSync(specsPath)) return [];
+
+    const items: SpecItem[] = [];
+    this.walkDir(specsPath, (filePath) => {
+      const content = readFileSync(filePath, "utf-8");
+      items.push({
+        path: relative(workDir, filePath),
+        content,
+      });
+    });
+    return items;
+  }
+
+  readSpecsAsText(workDir: string, specDir: string): string | null {
+    const items = this.readSpecs(workDir, specDir);
+    if (items.length === 0) return null;
+
+    return items
+      .map((item) => `<!-- ${item.path} -->\n${item.content}`)
+      .join("\n\n");
   }
 
   private readMemory(workDir: string): MemoryItem[] {
@@ -61,7 +94,6 @@ export class ContextAssembler {
     projectId: string,
     runId: string
   ): ScratchpadItem[] {
-    // Look for scratchpad artifacts on filesystem
     const project = this.db.getProject(projectId);
     const projectName = project?.name ?? projectId;
     const scratchDir = join(this.scratchpadRoot, projectName, runId);
@@ -97,7 +129,6 @@ export class ContextAssembler {
     context: AssembledContext
   ): string {
     const id = newId();
-    // Store snapshot metadata in DB
     const db = this.db as any;
     db.db
       .query(

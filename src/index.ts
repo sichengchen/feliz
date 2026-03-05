@@ -31,7 +31,7 @@ export type { ExecuteParams, ExecuteResult } from "./pipeline/executor.ts";
 
 // Context
 export { ContextAssembler } from "./context/assembler.ts";
-export type { AssembledContext, MemoryItem, ScratchpadItem } from "./context/assembler.ts";
+export type { AssembledContext, MemoryItem, ScratchpadItem, SpecItem } from "./context/assembler.ts";
 
 // Orchestrator
 export { Orchestrator } from "./orchestrator/orchestrator.ts";

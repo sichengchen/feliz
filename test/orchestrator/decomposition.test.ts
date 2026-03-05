@@ -2,7 +2,14 @@ import { describe, expect, test, mock, beforeEach, afterEach } from "bun:test";
 import { DecompositionEngine } from "../../src/orchestrator/decomposition.ts";
 import { Database } from "../../src/db/database.ts";
 import type { AgentAdapter } from "../../src/agents/adapter.ts";
-import { existsSync, unlinkSync, mkdirSync, rmSync } from "fs";
+import {
+  existsSync,
+  unlinkSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
+import { join } from "path";
 
 const TEST_DB = "/tmp/feliz-decomp-test.db";
 const TEST_WORK_DIR = "/tmp/feliz-decomp-workdir";
@@ -91,16 +98,54 @@ describe("DecompositionEngine", () => {
     expect(engine.isLargeFeature(["bug", "feliz"])).toBe(false);
   });
 
-  test("builds decomposition prompt", () => {
+  test("builds decomposition prompt with spec instructions when specsEnabled", () => {
     const engine = new DecompositionEngine(db, makeAdapter());
     const prompt = engine.buildDecompositionPrompt({
       identifier: "T-1",
       title: "Build payments",
       description: "Full system",
+      specsEnabled: true,
+      specDir: "specs",
+      existingSpecs: null,
     });
     expect(prompt).toContain("T-1");
     expect(prompt).toContain("Build payments");
     expect(prompt).toContain("sub-issues");
+    // Should instruct agent to draft specs alongside the breakdown
+    expect(prompt).toContain("spec");
+    expect(prompt).toContain("Design");
+    expect(prompt).toContain("Behavioral Cases");
+  });
+
+  test("builds decomposition prompt without spec instructions when specsEnabled=false", () => {
+    const engine = new DecompositionEngine(db, makeAdapter());
+    const prompt = engine.buildDecompositionPrompt({
+      identifier: "T-1",
+      title: "Build payments",
+      description: "Full system",
+      specsEnabled: false,
+      specDir: "specs",
+      existingSpecs: null,
+    });
+    expect(prompt).toContain("T-1");
+    expect(prompt).toContain("sub-issues");
+    // Should NOT mention spec drafting
+    expect(prompt).not.toContain("Design");
+    expect(prompt).not.toContain("Behavioral Cases");
+  });
+
+  test("decomposition prompt includes existing specs when provided", () => {
+    const engine = new DecompositionEngine(db, makeAdapter());
+    const prompt = engine.buildDecompositionPrompt({
+      identifier: "T-1",
+      title: "Build payments",
+      description: "Full system",
+      specsEnabled: true,
+      specDir: "specs",
+      existingSpecs: "# Existing Payment Spec\n\nCredit card processing design...",
+    });
+    expect(prompt).toContain("Existing Payment Spec");
+    expect(prompt).toContain("Credit card processing design");
   });
 
   test("proposes decomposition via agent", async () => {
@@ -109,6 +154,8 @@ describe("DecompositionEngine", () => {
     const result = await engine.proposeDecomposition({
       workItemId: "wi-1",
       workDir: TEST_WORK_DIR,
+      specsEnabled: false,
+      specDir: "specs",
     });
 
     expect(result.success).toBe(true);
@@ -117,11 +164,36 @@ describe("DecompositionEngine", () => {
     expect(adapter.execute).toHaveBeenCalledTimes(1);
   });
 
+  test("proposeDecomposition reads existing specs when specsEnabled", async () => {
+    // Create existing specs in the workdir
+    const specsDir = join(TEST_WORK_DIR, "specs");
+    mkdirSync(specsDir, { recursive: true });
+    writeFileSync(
+      join(specsDir, "index.md"),
+      "# Project Specs\n\nExisting payment specs..."
+    );
+
+    const adapter = makeAdapter();
+    const engine = new DecompositionEngine(db, adapter);
+    await engine.proposeDecomposition({
+      workItemId: "wi-1",
+      workDir: TEST_WORK_DIR,
+      specsEnabled: true,
+      specDir: "specs",
+    });
+
+    const call = (adapter.execute as ReturnType<typeof mock>).mock.calls[0]!;
+    const promptArg = (call[0] as any).prompt;
+    expect(promptArg).toContain("Existing payment specs");
+  });
+
   test("transitions to decompose_review after proposal", async () => {
     const engine = new DecompositionEngine(db, makeAdapter());
     await engine.proposeDecomposition({
       workItemId: "wi-1",
       workDir: TEST_WORK_DIR,
+      specsEnabled: false,
+      specDir: "specs",
     });
 
     const wi = db.getWorkItem("wi-1");
@@ -153,6 +225,8 @@ describe("DecompositionEngine", () => {
     await engine.proposeDecomposition({
       workItemId: "wi-1",
       workDir: TEST_WORK_DIR,
+      specsEnabled: false,
+      specDir: "specs",
     });
 
     const history = db.getHistory("proj-1", "wi-1");

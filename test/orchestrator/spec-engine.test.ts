@@ -7,7 +7,7 @@ import {
   unlinkSync,
   mkdirSync,
   rmSync,
-  readFileSync,
+  writeFileSync,
 } from "fs";
 import { join } from "path";
 
@@ -52,7 +52,7 @@ describe("SpecEngine", () => {
       project_id: "proj-1",
       parent_work_item_id: null,
       title: "Add login",
-      description: "Implement login with email/password",
+      description: "Implement login with email/password and OAuth",
       state: "Todo",
       priority: 1,
       labels: [],
@@ -67,22 +67,70 @@ describe("SpecEngine", () => {
     if (existsSync(TEST_WORK_DIR)) rmSync(TEST_WORK_DIR, { recursive: true });
   });
 
-  test("generates spec draft prompt from issue", () => {
+  test("prompt instructs agent to produce system design AND behavioral cases", () => {
     const engine = new SpecEngine(db, makeAdapter());
     const prompt = engine.buildSpecDraftPrompt({
       identifier: "T-1",
       title: "Add login",
-      description: "Implement login with email/password",
+      description: "Implement login with email/password and OAuth",
       specDir: "specs",
+      existingSpecs: null,
     });
     expect(prompt).toContain("T-1");
     expect(prompt).toContain("Add login");
     expect(prompt).toContain("email/password");
     expect(prompt).toContain("specs");
+    // Must request system design sections
+    expect(prompt).toContain("Overview");
+    expect(prompt).toContain("Design");
+    expect(prompt).toContain("Data Model");
+    expect(prompt).toContain("API");
+    // Must request behavioral cases
+    expect(prompt).toContain("Behavioral Cases");
+    expect(prompt).toContain("Given");
+    expect(prompt).toContain("When");
+    expect(prompt).toContain("Then");
+  });
+
+  test("prompt includes existing specs as context when provided", () => {
+    const engine = new SpecEngine(db, makeAdapter());
+    const existingSpecs = "# Auth Module\n\nExisting auth design...";
+    const prompt = engine.buildSpecDraftPrompt({
+      identifier: "T-2",
+      title: "Add OAuth",
+      description: "Add OAuth support",
+      specDir: "specs",
+      existingSpecs,
+    });
+    expect(prompt).toContain("Existing Specs");
+    expect(prompt).toContain("Existing auth design");
+  });
+
+  test("draftSpec reads existing specs from the repo", async () => {
+    // Create existing spec files in the workdir
+    const specsDir = join(TEST_WORK_DIR, "specs");
+    mkdirSync(join(specsDir, "auth"), { recursive: true });
+    writeFileSync(
+      join(specsDir, "auth", "index.md"),
+      "# Auth\n\n## Overview\n\nExisting auth module."
+    );
+
+    const adapter = makeAdapter();
+    const engine = new SpecEngine(db, adapter);
+    await engine.draftSpec({
+      workItemId: "wi-1",
+      workDir: TEST_WORK_DIR,
+      specDir: "specs",
+    });
+
+    // The agent should have been called with a prompt containing existing specs
+    const call = (adapter.execute as ReturnType<typeof mock>).mock.calls[0]!;
+    const promptArg = (call[0] as any).prompt;
+    expect(promptArg).toContain("Existing auth module");
   });
 
   test("drafts spec via agent", async () => {
-    const adapter = makeAdapter("# Login\n\n## Scenarios\n\n...");
+    const adapter = makeAdapter("# Login\n\n## Design\n\n...");
     const engine = new SpecEngine(db, adapter);
     const result = await engine.draftSpec({
       workItemId: "wi-1",
@@ -125,5 +173,40 @@ describe("SpecEngine", () => {
 
     const wi = db.getWorkItem("wi-1");
     expect(wi!.orchestration_state).toBe("queued");
+  });
+
+  test("returns failure when agent fails", async () => {
+    const failAdapter: AgentAdapter = {
+      name: "fail-agent",
+      isAvailable: async () => true,
+      execute: mock(async () => ({
+        status: "failed" as const,
+        exitCode: 1,
+        stdout: "",
+        stderr: "error",
+        filesChanged: [],
+      })),
+      cancel: mock(async () => {}),
+    };
+    const engine = new SpecEngine(db, failAdapter);
+    const result = await engine.draftSpec({
+      workItemId: "wi-1",
+      workDir: TEST_WORK_DIR,
+      specDir: "specs",
+    });
+    expect(result.success).toBe(false);
+    // State should NOT transition on failure
+    const wi = db.getWorkItem("wi-1");
+    expect(wi!.orchestration_state).toBe("spec_drafting");
+  });
+
+  test("returns failure when work item not found", async () => {
+    const engine = new SpecEngine(db, makeAdapter());
+    const result = await engine.draftSpec({
+      workItemId: "nonexistent",
+      workDir: TEST_WORK_DIR,
+      specDir: "specs",
+    });
+    expect(result.success).toBe(false);
   });
 });

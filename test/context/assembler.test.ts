@@ -94,6 +94,56 @@ describe("ContextAssembler", () => {
     expect(context.memory[0]!.content).toBe("Use Drizzle ORM");
   });
 
+  test("includes spec files as memory when specDir is provided", () => {
+    // Create spec files in the workdir
+    const specsDir = join(TEST_WORK_DIR, "specs");
+    mkdirSync(join(specsDir, "auth"), { recursive: true });
+    writeFileSync(
+      join(specsDir, "index.md"),
+      "# Project Specs\n\nMaster index."
+    );
+    writeFileSync(
+      join(specsDir, "auth", "login.md"),
+      "# Login\n\n## Overview\n\nAuth design.\n\n## Behavioral Cases\n\n..."
+    );
+
+    const assembler = new ContextAssembler(db, TEST_SCRATCH_DIR);
+    const context = assembler.assemble(
+      "proj-1",
+      "wi-1",
+      TEST_WORK_DIR,
+      null,
+      "specs"
+    );
+    // Specs should appear in the specs field
+    expect(context.specs).toHaveLength(2);
+    expect(context.specs.some((s) => s.path.includes("index.md"))).toBe(true);
+    expect(context.specs.some((s) => s.path.includes("auth/login.md"))).toBe(
+      true
+    );
+    expect(
+      context.specs.find((s) => s.path.includes("index.md"))!.content
+    ).toContain("Master index");
+  });
+
+  test("specs field is empty when no specDir provided", () => {
+    const assembler = new ContextAssembler(db, TEST_SCRATCH_DIR);
+    const context = assembler.assemble("proj-1", "wi-1", TEST_WORK_DIR);
+    expect(context.specs).toHaveLength(0);
+  });
+
+  test("specs field is empty when specDir doesnt exist", () => {
+    const assembler = new ContextAssembler(db, TEST_SCRATCH_DIR);
+    const context = assembler.assemble(
+      "proj-1",
+      "wi-1",
+      TEST_WORK_DIR,
+      null,
+      "nonexistent"
+    );
+    expect(context.specs).toHaveLength(0);
+  });
+
   test("includes scratchpad artifacts for current run", () => {
     const artifactDir = join(TEST_SCRATCH_DIR, "test", "run-1");
     mkdirSync(artifactDir, { recursive: true });
@@ -129,5 +179,24 @@ describe("ContextAssembler", () => {
     expect(context.history).toHaveLength(0);
     expect(context.memory).toHaveLength(0);
     expect(context.scratchpad).toHaveLength(0);
+    expect(context.specs).toHaveLength(0);
+  });
+
+  test("readSpecs returns concatenated spec content as string", () => {
+    const specsDir = join(TEST_WORK_DIR, "specs");
+    mkdirSync(join(specsDir, "auth"), { recursive: true });
+    writeFileSync(join(specsDir, "index.md"), "# Specs Index");
+    writeFileSync(join(specsDir, "auth", "login.md"), "# Login Spec");
+
+    const assembler = new ContextAssembler(db, TEST_SCRATCH_DIR);
+    const specContent = assembler.readSpecsAsText(TEST_WORK_DIR, "specs");
+    expect(specContent).toContain("Specs Index");
+    expect(specContent).toContain("Login Spec");
+  });
+
+  test("readSpecs returns null when no specs exist", () => {
+    const assembler = new ContextAssembler(db, TEST_SCRATCH_DIR);
+    const specContent = assembler.readSpecsAsText(TEST_WORK_DIR, "specs");
+    expect(specContent).toBeNull();
   });
 });

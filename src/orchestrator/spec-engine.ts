@@ -1,5 +1,6 @@
 import type { Database } from "../db/database.ts";
 import type { AgentAdapter } from "../agents/adapter.ts";
+import { ContextAssembler } from "../context/assembler.ts";
 import { newId } from "../id.ts";
 
 interface SpecDraftParams {
@@ -27,34 +28,72 @@ export class SpecEngine {
     title: string;
     description: string;
     specDir: string;
+    existingSpecs: string | null;
   }): string {
-    return `You are drafting a behavior specification for issue ${params.identifier}: ${params.title}
+    const sections: string[] = [];
+
+    sections.push(`You are drafting a specification for issue ${params.identifier}: ${params.title}
 
 ## Issue Description
 
-${params.description}
+${params.description}`);
 
-## Instructions
+    if (params.existingSpecs) {
+      sections.push(`## Existing Specs
 
-Draft a structured behavior specification in markdown format.
-Store spec files under the "${params.specDir}/" directory.
+The following specs already exist in this project. Use them as context to understand
+existing design decisions and conventions. Update them if necessary.
 
-Each spec should include:
-- System Behavior section describing the feature
-- Scenarios in Given/When/Then format
+${params.existingSpecs}`);
+    }
 
-Output the spec content directly.`;
+    sections.push(`## Instructions
+
+Draft a specification in markdown format. Store spec files under the "${params.specDir}/" directory.
+
+Each spec must include both **system design** and **behavioral cases**:
+
+### System Design Sections
+
+- **Overview**: What this feature does and why it exists
+- **Design**: Technical design including:
+  - Data Model (tables, schemas, types)
+  - API (endpoints, methods, parameters)
+  - Component interactions and invariants
+
+### Behavioral Cases
+
+Enumerate the expected behaviors as structured scenarios in Given/When/Then format:
+
+- **Given** a precondition
+- **When** an action occurs
+- **Then** the expected outcome
+- **And** additional outcomes
+
+Cover both happy paths and error cases.
+
+Output the spec content directly.`);
+
+    return sections.join("\n\n");
   }
 
   async draftSpec(params: SpecDraftParams): Promise<SpecDraftResult> {
     const wi = this.db.getWorkItem(params.workItemId);
     if (!wi) return { success: false };
 
+    // Read existing specs for context
+    const assembler = new ContextAssembler(this.db, "");
+    const existingSpecs = assembler.readSpecsAsText(
+      params.workDir,
+      params.specDir
+    );
+
     const prompt = this.buildSpecDraftPrompt({
       identifier: wi.linear_identifier,
       title: wi.title,
       description: wi.description,
       specDir: params.specDir,
+      existingSpecs,
     });
 
     const result = await this.adapter.execute({

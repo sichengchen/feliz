@@ -1,5 +1,6 @@
 import type { Database } from "../db/database.ts";
 import type { AgentAdapter } from "../agents/adapter.ts";
+import { ContextAssembler } from "../context/assembler.ts";
 import { newId } from "../id.ts";
 
 export interface SubIssueProposal {
@@ -30,14 +31,54 @@ export class DecompositionEngine {
     identifier: string;
     title: string;
     description: string;
+    specsEnabled: boolean;
+    specDir: string;
+    existingSpecs: string | null;
   }): string {
-    return `You are breaking down a large feature into sub-issues.
+    const sections: string[] = [];
+
+    sections.push(`You are breaking down a large feature into sub-issues.
 
 ## Issue: ${params.identifier} - ${params.title}
 
-${params.description}
+${params.description}`);
 
-## Instructions
+    if (params.existingSpecs) {
+      sections.push(`## Existing Specs
+
+${params.existingSpecs}`);
+    }
+
+    if (params.specsEnabled) {
+      sections.push(`## Instructions
+
+Analyze this feature and break it down into implementable sub-issues.
+For each sub-issue, provide system design context and behavioral cases.
+
+Also draft a project-level spec covering the full feature. The spec should include:
+- **Overview**: What the feature does and its scope
+- **Design**: Data Model, API, component interactions
+- **Behavioral Cases**: Given/When/Then scenarios for each sub-feature
+
+Output a JSON object with the following structure:
+{
+  "spec_content": "Full markdown spec content to write to ${params.specDir}/",
+  "sub_issues": [
+    {
+      "title": "Sub-issue title",
+      "description": "Detailed description including relevant design context and behavioral cases",
+      "dependencies": ["title of dependency"]
+    }
+  ]
+}
+
+Each sub-issue should be:
+- Small enough to implement in one agent run
+- Include design context (data models, APIs) relevant to that sub-issue
+- Include behavioral cases as acceptance criteria
+- List dependencies on other sub-issues by title`);
+    } else {
+      sections.push(`## Instructions
 
 Analyze this feature and break it down into implementable sub-issues.
 
@@ -55,20 +96,38 @@ Output a JSON object with the following structure:
 Each sub-issue should be:
 - Small enough to implement in one agent run
 - Have clear acceptance criteria
-- List dependencies on other sub-issues by title`;
+- List dependencies on other sub-issues by title`);
+    }
+
+    return sections.join("\n\n");
   }
 
   async proposeDecomposition(params: {
     workItemId: string;
     workDir: string;
+    specsEnabled: boolean;
+    specDir: string;
   }): Promise<DecompositionResult> {
     const wi = this.db.getWorkItem(params.workItemId);
     if (!wi) return { success: false };
+
+    // Read existing specs for context when specs are enabled
+    let existingSpecs: string | null = null;
+    if (params.specsEnabled) {
+      const assembler = new ContextAssembler(this.db, "");
+      existingSpecs = assembler.readSpecsAsText(
+        params.workDir,
+        params.specDir
+      );
+    }
 
     const prompt = this.buildDecompositionPrompt({
       identifier: wi.linear_identifier,
       title: wi.title,
       description: wi.description,
+      specsEnabled: params.specsEnabled,
+      specDir: params.specDir,
+      existingSpecs,
     });
 
     const result = await this.adapter.execute({
