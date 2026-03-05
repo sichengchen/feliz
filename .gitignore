@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+out/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# data
+*.db
+*.sqlite
+
+# os
+.DS_Store
+Thumbs.db
+
+# editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# logs
+*.log
+
+# deep research
+deep-research-report.md
