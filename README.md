@@ -25,7 +25,7 @@ No context switching. No prompting. Linear is your interface — Feliz is the en
 
 **Multi-step pipelines** — Define execution phases: write tests, implement code, run a review cycle with a different agent, fix issues, repeat until done.
 
-**Pluggable agents** — Ships with Claude Code. Add Codex, Aider, or any CLI agent through a simple adapter interface.
+**Pluggable agents** — Includes a Claude Code adapter out of the box. Add Codex, Aider, or any CLI agent through a simple adapter interface. Agent CLIs are installed and authenticated separately — Feliz never bundles proprietary software.
 
 **Persistent context** — History, memory, and scratchpad layers ensure agents learn from prior runs. Conventions and decisions accumulate in the repo, not in ephemeral chat.
 
