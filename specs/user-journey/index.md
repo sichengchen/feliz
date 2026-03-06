@@ -14,7 +14,7 @@ This document traces how a developer/team uses Feliz throughout the entire lifec
    ```bash
    git clone <repo-url> && cd feliz
    cp .env.example .env
-   # Edit .env with your LINEAR_API_KEY, GITHUB_TOKEN, etc.
+   # Edit .env with your GITHUB_TOKEN, etc. (Linear OAuth token set during `feliz init`)
    docker compose up -d --build
    ```
    The `docker-compose.yml` uses `build: .` to build the image locally. The `.env.example` file documents all available environment variables. Agent API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) are optional — prefer OAuth via `feliz init`.
@@ -25,8 +25,8 @@ This document traces how a developer/team uses Feliz throughout the entire lifec
    docker compose exec feliz feliz init
    ```
    The wizard walks through:
-   - Verifying `LINEAR_API_KEY` and `GITHUB_TOKEN` environment variables
-   - Connecting to Linear API to confirm access
+   - Registering or connecting the Linear OAuth app (`actor=app`)
+   - Verifying `GITHUB_TOKEN` environment variable
    - Installing and authenticating coding agents (see below)
    - Selecting the default agent adapter
    - Writing `feliz.yml` with initial settings
@@ -34,11 +34,13 @@ This document traces how a developer/team uses Feliz throughout the entire lifec
    ```
    Feliz Setup
    -----------
-   Checking environment...
-     LINEAR_API_KEY : set
-     GITHUB_TOKEN   : set
+   Linear OAuth Setup:
+     1. Register a new app at https://linear.app/settings/api/applications/new
+     2. Enable webhooks + "Agent session events"
+     3. Complete OAuth flow with actor=app
 
-   Connecting to Linear... OK (workspace: "Acme Corp")
+   Connecting to Linear... OK (workspace: "Acme Corp", bot: "Feliz")
+   GITHUB_TOKEN   : set
 
    Install coding agents
    ---------------------
@@ -165,7 +167,7 @@ Feliz is now running but has no projects configured.
 
 ### What Feliz does
 
-Feliz is now listening for `@feliz` mentions on issues in the Payments Service project via the Chat SDK. No issues are tracked yet — Feliz only tracks issues when explicitly mentioned.
+Feliz is now listening for `@Feliz` mentions and issue delegations in the Payments Service project via Agent Session webhooks. No issues are tracked yet — Feliz only tracks issues when explicitly mentioned or delegated.
 
 ---
 
@@ -178,11 +180,11 @@ Feliz is now listening for `@feliz` mentions on issues in the Payments Service p
 1. **Create a milestone** (optional) in Linear for the feature set (e.g., "Payments MVP").
 2. **Create an initial Linear issue** describing the full product vision:
    > "Build a payments service that supports credit card processing, subscription billing, invoicing, and webhook notifications to downstream services."
-3. **Mention Feliz** in the issue: `@feliz decompose`
+3. **Mention Feliz** in the issue: `@Feliz decompose`
 
 ### What Feliz does
 
-4. Feliz reacts with 👀 on the comment.
+4. Feliz acknowledges on the comment.
 5. Feliz detects this as a large feature and enters `decomposing` state.
 
 #### With `specs.enabled: true`
@@ -219,7 +221,7 @@ Feliz is now listening for `@feliz` mentions on issues in the Payments Service p
    11. PAY-111: Webhook event system (depends on PAY-101)
    12. PAY-112: Webhook delivery & retry (depends on PAY-111)
 
-   Reply @feliz approve to create these issues, or comment with adjustments.
+   Reply @Feliz approve to create these issues, or comment with adjustments.
    ```
 
 #### With `specs.enabled: false`
@@ -235,7 +237,7 @@ Feliz is now listening for `@feliz` mentions on issues in the Payments Service p
       "Create a Stripe client wrapper with charge, refund, and subscription methods."
    ...
 
-   Reply @feliz approve to create these issues, or comment with adjustments.
+   Reply @Feliz approve to create these issues, or comment with adjustments.
    ```
 
 #### Both paths continue:
@@ -244,8 +246,8 @@ Feliz is now listening for `@feliz` mentions on issues in the Payments Service p
 
 7. Reviews the proposed breakdown (and spec, if enabled) in Linear.
 8. Comments with adjustments: "Split PAY-107 into create/cancel/upgrade. Combine PAY-111 and PAY-112 into one issue."
-9. Feliz reacts with 👀, revises and reposts.
-10. User approves: `@feliz approve`.
+9. Feliz acknowledges, revises and reposts.
+10. User approves: `@Feliz approve`.
 
 ### What Feliz does next
 
@@ -266,8 +268,8 @@ Feliz is now listening for `@feliz` mentions on issues in the Payments Service p
 
 ### Scenario A: Simple issue (small task)
 
-1. User mentions `@feliz` on PAY-101 (Database schema): "Please work on this."
-2. Feliz reacts with 👀 and creates a WorkItem.
+1. User mentions `@Feliz` on PAY-101 (Database schema): "Please work on this."
+2. Feliz acknowledges and creates a WorkItem.
 3. Context assembly:
    - **With specs**: Feliz finds the relevant spec files (system design and behavioral cases) for this issue and includes them as context.
    - **Without specs**: Feliz uses the issue description and any accumulated project memory (conventions, prior run summaries).
@@ -283,8 +285,8 @@ Feliz is now listening for `@feliz` mentions on issues in the Payments Service p
 
 *This scenario only applies when `specs.enabled: true`.*
 
-1. User mentions `@feliz` on PAY-107 (Subscription lifecycle).
-2. Feliz reacts with 👀. Detects ambiguity (spec doesn't fully cover edge cases for upgrades/downgrades).
+1. User mentions `@Feliz` on PAY-107 (Subscription lifecycle).
+2. Feliz acknowledges. Detects ambiguity (spec doesn't fully cover edge cases for upgrades/downgrades).
 3. Feliz enters `spec_drafting` — drafts additional design details and behavioral cases:
    ```
    I've drafted additional design and cases for subscription lifecycle:
@@ -304,18 +306,18 @@ Feliz is now listening for `@feliz` mentions on issues in the Payments Service p
    ### Cancel with grace period
    ...
 
-   Reply @feliz approve to proceed, or comment with adjustments.
+   Reply @Feliz approve to proceed, or comment with adjustments.
    ```
 4. User comments: "Upgrades should take effect at next renewal too, not immediately. Add a scenario for failed payment retry."
-5. Feliz reacts with 👀, revises the spec, reposts. User approves.
+5. Feliz acknowledges, revises the spec, reposts. User approves.
 6. Pipeline executes with the refined spec as context.
 
 ### Scenario C: Complex issue, needs clarification (specs disabled)
 
 *When specs are off, Feliz doesn't draft spec artifacts — but it can still ask for clarification.*
 
-1. User mentions `@feliz` on PAY-107 (Subscription lifecycle).
-2. Feliz reacts with 👀. Detects ambiguity in the issue description.
+1. User mentions `@Feliz` on PAY-107 (Subscription lifecycle).
+2. Feliz acknowledges. Detects ambiguity in the issue description.
 3. Feliz posts a clarifying question to Linear:
    ```
    Before starting, I need clarification on a few points:
@@ -326,7 +328,7 @@ Feliz is now listening for `@feliz` mentions on issues in the Payments Service p
 
    Reply with answers and I'll proceed.
    ```
-4. User replies with clarifications. Feliz reacts with 👀, appends them to context history.
+4. User replies with clarifications. Feliz acknowledges, appends them to context history.
 5. Pipeline executes with the issue description + clarifications as context.
 
 ### Scenario D: Failed run, agent handles recovery
@@ -344,10 +346,10 @@ Feliz is now listening for `@feliz` mentions on issues in the Payments Service p
    I attempted to fix this but couldn't resolve it. The issue seems to be in the
    metering window calculation.
 
-   Reply @feliz retry to retry, or provide guidance.
+   Reply @Feliz retry to retry, or provide guidance.
    ```
 5. User comments with a hint: "The metering window should be inclusive on both ends."
-6. Feliz reacts with 👀. On retry, the agent receives the original failure context plus the user's guidance.
+6. Feliz acknowledges. On retry, the agent receives the original failure context plus the user's guidance.
 
 ### Scenario E: Publishing failure, agent recovers
 
@@ -367,8 +369,8 @@ If the agent cannot resolve the conflict, it posts to Linear asking the user for
 ### Steps
 
 1. User creates a new Linear issue: "Add authentication middleware and protect all payment endpoints."
-2. User mentions `@feliz` on the issue.
-3. Feliz reacts with 👀 and picks it up. Context assembly includes:
+2. User mentions `@Feliz` on the issue.
+3. Feliz acknowledges and picks it up. Context assembly includes:
    - **Memory**: project conventions, architectural decisions, and specs (if enabled)
    - **History**: summaries of prior runs (what code was written, which files changed)
    - **Scratchpad**: any notes promoted from prior runs about conventions discovered
@@ -387,18 +389,18 @@ If the agent cannot resolve the conflict, it posts to Linear asking the user for
 ### Steps
 
 1. Bugs are filed as Linear issues.
-2. User mentions `@feliz` on the bug. Feliz reacts with 👀 and picks it up.
+2. User mentions `@Feliz` on the bug. Feliz acknowledges and picks it up.
 3. For bugs:
    - Issue description + existing context (specs if enabled, or accumulated memory) provide enough context.
    - Pipeline runs normally: agent implements fix, runs tests, commits, pushes, creates PR.
 4. User can control per-issue behavior:
    - Add a `feliz:priority` label -> Feliz boosts priority in the dispatch queue.
-   - Comment `@feliz start` -> skip spec phase (if enabled), go straight to execution.
+   - Comment `@Feliz start` -> skip spec phase (if enabled), go straight to execution.
 
 ### Scenario: Rapid bug fixing
 
-1. QA files 5 bugs in quick succession, mentions `@feliz` on each.
-2. Feliz reacts with 👀 on all five.
+1. QA files 5 bugs in quick succession, mentions `@Feliz` on each.
+2. Feliz acknowledges on all five.
 3. Feliz creates worktrees for each, works on them in parallel (up to `max_concurrent` limit).
 4. Each gets its own branch, its own PR.
 5. Feliz posts results to each Linear issue independently.
@@ -413,8 +415,8 @@ If the agent cannot resolve the conflict, it posts to Linear asking the user for
 ### With `specs.enabled: true` — Spec Maintenance
 
 1. A new feature request arrives: "Support ACH bank transfers in addition to credit cards."
-2. User creates a Linear issue and mentions `@feliz`.
-3. Feliz reacts with 👀 and enters `spec_drafting`:
+2. User creates a Linear issue and mentions `@Feliz`.
+3. Feliz acknowledges and enters `spec_drafting`:
    - Reads the existing specs to understand the current payment architecture.
    - Drafts new spec files: `specs/ach-transfers/index.md` with design and behavioral cases.
    - **Also identifies specs that need updating**: the charge creation spec now needs an ACH path.
@@ -428,15 +430,15 @@ If the agent cannot resolve the conflict, it posts to Linear asking the user for
    - specs/credit-cards/charge.md — added "payment method type" branching
    - specs/index.md — added ACH transfers section
 
-   Reply @feliz approve to proceed.
+   Reply @Feliz approve to proceed.
    ```
 5. User reviews, approves. Feliz implements against the updated specs.
 
 ### With `specs.enabled: false` — Context-Driven Evolution
 
 1. Same feature request: "Support ACH bank transfers."
-2. User creates a Linear issue and mentions `@feliz`.
-3. Feliz reacts with 👀 and picks it up directly — no spec phase. Context assembly includes accumulated memory from prior runs.
+2. User creates a Linear issue and mentions `@Feliz`.
+3. Feliz acknowledges and picks it up directly — no spec phase. Context assembly includes accumulated memory from prior runs.
 4. Pipeline executes. The agent uses its understanding of the existing code (from context) to add ACH support consistently.
 5. Quality is enforced via pipeline gates (tests, review cycles) rather than spec conformance.
 
@@ -450,12 +452,12 @@ If the agent cannot resolve the conflict, it posts to Linear asking the user for
 
 | Work type | How the user uses Feliz |
 |---|---|
-| **Dependency update** | Create issue, mention `@feliz`: "Update Stripe SDK to v15." Feliz updates, runs tests, creates PR. |
-| **Small feature** | Create issue, mention `@feliz`. Feliz implements (spec phase if enabled). |
-| **Large feature** | Create issue, `@feliz decompose`. Full decomposition flow (with milestone if desired). |
-| **Refactor** | Create issue, mention `@feliz`: "Extract billing logic into separate module." Feliz has context from prior runs. |
-| **Bug fix** | File bug, mention `@feliz`. Feliz fixes and creates PR. |
-| **Tech debt** | Create issue, mention `@feliz`. Add `feliz:low-priority` label. Feliz works on it when higher-priority work is done. |
+| **Dependency update** | Create issue, mention `@Feliz`: "Update Stripe SDK to v15." Feliz updates, runs tests, creates PR. |
+| **Small feature** | Create issue, mention `@Feliz`. Feliz implements (spec phase if enabled). |
+| **Large feature** | Create issue, `@Feliz decompose`. Full decomposition flow (with milestone if desired). |
+| **Refactor** | Create issue, mention `@Feliz`: "Extract billing logic into separate module." Feliz has context from prior runs. |
+| **Bug fix** | File bug, mention `@Feliz`. Feliz fixes and creates PR. |
+| **Tech debt** | Create issue, mention `@Feliz`. Add `feliz:low-priority` label. Feliz works on it when higher-priority work is done. |
 
 ### Context accumulation over time
 
@@ -474,9 +476,9 @@ This means later agents benefit from earlier agents' work. Agent run #50 has dra
 The user's workflow converges to:
 
 1. **Write Linear issues** (descriptions, acceptance criteria, context).
-2. **Mention `@feliz`** to assign work.
+2. **Mention `@Feliz`** to assign work.
 3. **Review Feliz's proposals** in Linear comments (decompositions, spec drafts if enabled, clarifying questions).
-4. **Approve or adjust** via `@feliz approve` or comment feedback.
+4. **Approve or adjust** via `@Feliz approve` or comment feedback.
 5. **Review PRs** that Feliz creates.
 6. **Merge or request changes** through normal PR workflow.
 

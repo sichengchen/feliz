@@ -8,7 +8,7 @@ Lives in Feliz's data directory (e.g., `/data/feliz.yml` or `~/.feliz/feliz.yml`
 # feliz.yml
 
 linear:
-  api_key: $LINEAR_API_KEY
+  oauth_token: $LINEAR_OAUTH_TOKEN   # OAuth app token (actor=app)
 
 polling:
   interval_ms: 30000
@@ -37,7 +37,7 @@ projects:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `linear.api_key` | string (env ref) | required | Linear API key. Supports `$ENV_VAR` indirection. |
+| `linear.oauth_token` | string (env ref) | required | Linear OAuth app token (`actor=app`). Supports `$ENV_VAR` indirection. |
 | `polling.interval_ms` | number | `30000` | Polling interval in milliseconds. |
 | `storage.data_dir` | string | `~/.feliz` | Root directory for Feliz data (DB, logs). |
 | `storage.workspace_root` | string | `{data_dir}/workspaces` | Root directory for repo clones and worktrees. |

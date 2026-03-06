@@ -7,9 +7,10 @@
 │                     Feliz Server                        │
 │                                                         │
 │  ┌───────────┐  ┌───────────┐  ┌──────────────────────┐ │
-│  │  Linear   │  │  Chat SDK │  │   Context Store      │ │
-│  │  Client   │  │  (Vercel) │  │  (History/Memory/    │ │
-│  │ (GraphQL) │  │  Linear+  │  │   Scratchpad)        │ │
+│  │  Linear   │  │  Webhook  │  │   Context Store      │ │
+│  │  Client   │  │  Handler  │  │  (History/Memory/    │ │
+│  │ (GraphQL) │  │ (Agent    │  │   Scratchpad)        │ │
+│  │           │  │  Sessions)│  │                      │ │
 │  └─────┬─────┘  └─────┬─────┘  └──────────┬───────────┘ │
 │        │               │                   │             │
 │  ┌─────▼───────────────▼──────────────────▼───────────┐ │

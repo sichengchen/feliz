@@ -260,7 +260,7 @@ After a successful run, Feliz evaluates scratchpad artifacts for promotion:
    - Convention: all Stripe API calls use the shared `stripeClient` wrapper
    - Pattern: error handling uses `StripeError` → `AppError` mapping in middleware
 
-   Reply @feliz approve to promote, or @feliz discard.
+   Reply @Feliz approve to promote, or @Feliz discard.
    ```
 3. User approves → artifacts become memory entries with `source: "promotion"`.
 

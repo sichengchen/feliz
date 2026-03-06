@@ -81,7 +81,7 @@ per IP address (5 attempts per 15 minutes).
 ## Spec Lifecycle
 
 ```
-User mentions @feliz on a Linear issue
+User mentions @Feliz on a Linear issue
     |
     v
 Feliz reacts with 👀, creates WorkItem
@@ -102,7 +102,7 @@ Human reviews, comments with feedback
 Feliz reacts with 👀, revises spec based on feedback
     |
     v
-Human approves (@feliz approve)
+Human approves (@Feliz approve)
     |
     v
 Spec is committed to worktree, agent uses it as primary context
@@ -126,10 +126,10 @@ The agent is instructed to implement the system described in the design section 
 
 ## Feature Decomposition
 
-When a user wants to add many features at once, they create a single high-level Linear issue and mention `@feliz decompose`. Feliz can also detect large features automatically based on heuristics.
+When a user wants to add many features at once, they create a single high-level Linear issue and mention `@Feliz decompose`. Feliz can also detect large features automatically based on heuristics.
 
 **Detection heuristics** (any of):
-- User explicitly requests decomposition via `@feliz decompose`
+- User explicitly requests decomposition via `@Feliz decompose`
 - Issue has an `epic` label
 - Issue description exceeds a complexity threshold (multiple distinct features described)
 
@@ -138,7 +138,7 @@ When a user wants to add many features at once, they create a single high-level 
 When `specs.enabled: true`:
 
 ```
-User creates Linear issue and mentions @feliz decompose
+User creates Linear issue and mentions @Feliz decompose
     |
     v
 Feliz reacts with 👀, detects large feature -> enters 'decomposing'
@@ -157,7 +157,7 @@ From the spec, Feliz proposes a breakdown:
 Feliz posts the breakdown to the parent Linear issue as a comment
     |
     v
-Human reviews, adjusts, approves (@feliz approve)
+Human reviews, adjusts, approves (@Feliz approve)
     |
     v
 Feliz creates sub-issues in Linear with:
@@ -181,7 +181,7 @@ Parent issue auto-completes when all sub-issues are completed
 When `specs.enabled: false`:
 
 ```
-User creates Linear issue and mentions @feliz decompose
+User creates Linear issue and mentions @Feliz decompose
     |
     v
 Feliz reacts with 👀, detects large feature -> enters 'decomposing'
@@ -196,7 +196,7 @@ Feliz analyzes the description and proposes a breakdown:
 Feliz posts the breakdown to the parent Linear issue as a comment
     |
     v
-Human reviews, adjusts, approves (@feliz approve)
+Human reviews, adjusts, approves (@Feliz approve)
     |
     v
 Feliz creates sub-issues in Linear with blocker relationships

@@ -40,7 +40,7 @@ After a successful run, certain scratchpad artifacts can be promoted to memory:
 - Discovered conventions or patterns
 - Test coverage reports
 
-Promotion is either automatic (if `specs.approval_required: false`) or requires human approval (Feliz posts to Linear: "Promote these findings to project memory? Reply `@feliz approve`").
+Promotion is either automatic (if `specs.approval_required: false`) or requires human approval (Feliz posts to Linear: "Promote these findings to project memory? Reply `@Feliz approve`").
 
 ---
 

@@ -150,7 +150,7 @@ Write `/tmp/feliz-e2e/feliz.yml`:
 
 ```yaml
 linear:
-  api_key: $LINEAR_API_KEY
+  oauth_token: $LINEAR_OAUTH_TOKEN
 
 polling:
   interval_ms: 5000

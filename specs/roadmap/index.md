@@ -7,11 +7,11 @@
 - SQLite schema + migrations
 - CLI skeleton (`feliz start`, `feliz config validate`)
 
-## Phase 2: Linear Integration (Chat SDK + GraphQL)
-- Chat SDK setup with Linear adapter
-- `onNewMention` handler: WorkItem creation, 👀 reaction, command parsing
-- `onSubscribedMessage` handler: follow-up message processing
-- Linear GraphQL client for mutations (state updates, issue creation, reactions)
+## Phase 2: Linear Integration (Agent API + GraphQL)
+- Linear OAuth app registration (`actor=app`, `app:mentionable`, `app:assignable`)
+- Webhook handler for Agent Session events (created, updated)
+- Agent Activity emitter (thoughts, comments)
+- Linear GraphQL client for mutations (state updates, issue creation)
 - WorkItem CRUD in SQLite
 - History event logging (append-only)
 
@@ -28,8 +28,8 @@
 - Publishing prompt template (`.feliz/prompts/publish.md`)
 - Agent commits, pushes, creates PR as a pipeline step
 - Linear comment posting and state updates
-- 👀 reaction on all events
-- Command parsing (`@feliz start/status/retry/cancel`)
+- Agent Activity acknowledgment on all events
+- Command parsing (`@Feliz start/status/retry/cancel`)
 
 ## Phase 5: Multi-Step Pipeline Engine
 - Pipeline phase/step executor

@@ -101,31 +101,31 @@ When `specs.enabled: false` (no spec concept at all):
 
 ## Entry Point: Mention-Based Discovery
 
-Work items enter the system when a user mentions `@feliz` on a Linear issue (via Chat SDK `onNewMention`). Feliz does **not** poll for issues. See [Linear Integration](../linear/index.md) for details.
+Work items enter the system when a user mentions `@Feliz` or delegates an issue to Feliz in Linear. This triggers an Agent Session webhook. Feliz does **not** poll for issues. See [Linear Integration](../linear/index.md) for details.
 
-When a new mention is received:
+When a new Agent Session is created:
 
-1. Feliz reacts with 👀 to acknowledge.
+1. Feliz emits a `thought` activity within 10 seconds to acknowledge.
 2. Feliz creates a WorkItem in `unclaimed` state.
-3. Feliz evaluates the mention context (command, issue description) to determine the first transition.
+3. Feliz evaluates the session context (command, issue description, `promptContext`) to determine the first transition.
 
 ## Transitions
 
 | From | To | Trigger |
 |---|---|---|
-| `unclaimed` | `decomposing` | User says `@feliz decompose`, or Feliz judges issue as large feature (epic label, complexity). Decomposition includes spec drafting only if `specs.enabled`. |
+| `unclaimed` | `decomposing` | User says `@Feliz decompose`, or Feliz judges issue as large feature (epic label, complexity). Decomposition includes spec drafting only if `specs.enabled`. |
 | `unclaimed` | `spec_drafting` | `specs.enabled` AND not a large feature |
 | `unclaimed` | `queued` | `!specs.enabled` AND not a large feature |
 | `decomposing` | `decompose_review` | Feliz drafts breakdown, posts to Linear for approval |
-| `decompose_review` | (creates sub-WorkItems) | Human approves decomposition (`@feliz approve`). Parent stays in `decompose_review` until children complete. |
+| `decompose_review` | (creates sub-WorkItems) | Human approves decomposition (`@Feliz approve`). Parent stays in `decompose_review` until children complete. |
 | `spec_drafting` | `spec_review` | `specs.enabled` AND spec draft completed, posted to Linear |
-| `spec_review` | `queued` | Human approves (`@feliz approve`) or `!specs.approval_required` |
+| `spec_review` | `queued` | Human approves (`@Feliz approve`) or `!specs.approval_required` |
 | `queued` | `running` | Concurrency slot available, pipeline dispatched |
 | `running` | `completed` | All pipeline phases/steps succeed (including agent-handled publishing) |
 | `running` | `retry_queued` | Pipeline fails, retries remaining |
 | `running` | `failed` | Pipeline fails, no retries remaining |
 | `retry_queued` | `queued` | Backoff timer expires |
-| any | `cancelled` | User cancels via `@feliz cancel` |
+| any | `cancelled` | User cancels via `@Feliz cancel` |
 
 **Note**: The states `spec_drafting` and `spec_review` only exist when `specs.enabled: true`. When specs are disabled, these states are never entered and the orchestration state type excludes them.
 
@@ -182,15 +182,15 @@ Feliz runs a periodic tick (configurable interval, default 5s) that:
 3. Promotes retry-ready `retry_queued` items back to `queued`.
 4. Dispatches eligible `queued` items to `running`.
 
-New work items enter through the Chat SDK event handler (not the tick).
+New work items enter through the Agent Session webhook handler (not the tick).
 
 ## Behavioral Scenarios
 
 ### Scenario: New Mention Creates Work Item
 
-- **Given** a user mentions `@feliz` on a Linear issue not tracked by Feliz
-- **When** the Chat SDK fires `onNewMention`
-- **Then** Feliz reacts with 👀, creates a WorkItem in `unclaimed`, and evaluates the first transition
+- **Given** a user mentions `@Feliz` or delegates an issue to Feliz
+- **When** Linear fires an Agent Session `created` webhook
+- **Then** Feliz emits a `thought` activity, creates a WorkItem in `unclaimed`, and evaluates the first transition
 
 ### Scenario: Spec Drafting Progression
 
@@ -223,5 +223,5 @@ Configurable via `agent.approval_policy` in `.feliz/config.yml`:
 | Policy | Behavior |
 |---|---|
 | `auto` | Agent executes freely. Post-step validation checked after completion. |
-| `gated` | Feliz posts the agent's plan to Linear before execution. Requires `@feliz approve` to proceed. |
+| `gated` | Feliz posts the agent's plan to Linear before execution. Requires `@Feliz approve` to proceed. |
 | `suggest` | Agent produces a diff but doesn't commit. Feliz posts the diff for review. Requires approval to apply. |

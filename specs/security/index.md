@@ -27,7 +27,7 @@ OpenTelemetry export is a future extension.
 
 ## Secrets & Agent Authentication
 
-- **Linear API key**: environment variable (`LINEAR_API_KEY`), never logged or stored in config files.
+- **Linear OAuth token**: environment variable (`LINEAR_OAUTH_TOKEN`), obtained via OAuth2 flow with `actor=app`. Never logged or stored in config files.
 - **Git credentials**: SSH keys (via agent socket mount) or HTTPS tokens (see Docker Credentials below).
 - **GitHub/GitLab API token**: environment variable (`GITHUB_TOKEN`) for PR creation.
 - **Coding agent credentials**: Feliz delegates authentication to each agent's own CLI. Feliz never stores agent OAuth tokens or credentials itself.
@@ -67,7 +67,7 @@ services:
       - feliz-agent-creds:/root
     environment:
       - SSH_AUTH_SOCK=/ssh-agent
-      - LINEAR_API_KEY
+      - LINEAR_OAUTH_TOKEN
       - GITHUB_TOKEN
       - ANTHROPIC_API_KEY
       - GIT_AUTHOR_NAME
@@ -97,7 +97,7 @@ The Dockerfile must include `git`, `openssh-client`, and configure `known_hosts`
 ## Trust Model
 
 Feliz trusts:
-- The configured Linear API key (operator responsibility)
+- The configured Linear OAuth token (operator responsibility)
 - The code in managed repos (operator responsibility -- don't point Feliz at untrusted repos)
 - Hook scripts in `.feliz/config.yml` (repo-controlled, treat as trusted config)
 - Agent adapters (bundled or operator-installed)
