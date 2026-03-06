@@ -1,6 +1,6 @@
 # Feliz Specification
 
-Feliz is a long-running orchestration service that connects Linear (as the primary user interface) to pluggable coding agents, managing the full lifecycle from mention-based issue assignment through spec authoring, agent execution, and PR delivery. Users mention `@Feliz` or delegate issues to it in Linear. Every pipeline step — including publishing — is an agent call with a prompt stored in the repo. Feliz maintains a persistent context layer (history, memory, scratchpad) so that knowledge accumulates across runs and agents never start from zero.
+Feliz is a long-running orchestration service that connects Linear (as the primary user interface) to pluggable coding agents, managing the full lifecycle from mention-based issue assignment through spec authoring, agent execution, and PR delivery. Users assign issues to Feliz or @-mention it in Linear. Every pipeline step — including publishing — is an agent call with a prompt stored in the repo. Feliz maintains a persistent context layer (history, memory, scratchpad) so that knowledge accumulates across runs and agents never start from zero.
 
 ## Core value proposition
 

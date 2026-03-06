@@ -56,21 +56,21 @@ The bot identity means:
 
 Feliz does **not** poll for issues. Work enters Feliz through two mechanisms, both delivered via webhooks:
 
-1. **Mention** — a user @-mentions `@Feliz` in an issue comment or description.
-2. **Delegation** — a user assigns an issue to Feliz (sets Feliz as the `delegate`).
+1. **Assignment (primary)** — a user assigns an issue to Feliz. This is the simplest workflow — no comment needed. Just assign and Feliz starts working.
+2. **Mention** — a user @-mentions `@Feliz` in an issue comment. Useful for commands (`@Feliz decompose`), providing guidance, or assigning with context.
 
 Both trigger an `AgentSessionEvent` webhook with a `created` action, containing the `agentSession` object with the relevant issue, comment, and context.
 
 **How an issue enters Feliz**:
 
 1. A user creates or opens a Linear issue.
-2. The user either @-mentions `@Feliz` in a comment, or delegates the issue to Feliz.
+2. The user assigns the issue to Feliz (simplest), or @-mentions `@Feliz` in a comment.
 3. Linear creates an Agent Session and fires a webhook to Feliz.
 4. Feliz creates a WorkItem record, emits a `thought` activity within 10 seconds to acknowledge, and begins processing.
 
-Issues that are never mentioned/delegated to Feliz are invisible to it. The user controls exactly which issues Feliz works on.
+Issues that are never assigned/mentioned to Feliz are invisible to it. The user controls exactly which issues Feliz works on.
 
-**Delegate vs Assignee**: When a user delegates an issue to Feliz, Feliz becomes the `delegate` — the human remains the `assignee` and maintains ownership. This is Linear's native model for agent collaboration.
+**Delegate vs Assignee**: Assigning an issue to Feliz sets it as the `delegate`, not the `assignee` — the human maintains ownership while Feliz acts on their behalf. This is Linear's native model for agent collaboration.
 
 **Milestone support**: Users can optionally organize issues under Linear milestones. Feliz respects milestone grouping when decomposing large features — sub-issues are created under the same milestone as the parent.
 
@@ -140,7 +140,7 @@ Commands are parsed from the mention text or follow-up comments in the session:
 
 | Command | Effect |
 |---|---|
-| `@Feliz` (mention or delegate, no command) | Assign issue to Feliz. Creates WorkItem, starts processing. |
+| (assign to Feliz) | Assign issue to Feliz. Creates WorkItem, starts processing. No comment needed. |
 | `@Feliz decompose` | Break down a large feature into sub-issues |
 | `@Feliz start` | Dispatch agent immediately (skip spec phase if enabled) |
 | `@Feliz plan` | Enter spec drafting phase (only when `specs.enabled`; ignored otherwise) |
@@ -166,7 +166,7 @@ This gives the user immediate visual feedback that Feliz received their message.
 
 | Event | Activity |
 |---|---|
-| Issue assigned to Feliz | `thought`: "Looking into this..." |
+| Issue assigned/delegated to Feliz | `thought`: "Looking into this..." |
 | Spec drafted | `comment`: Spec summary + "Reply `@Feliz approve` to proceed" |
 | Decomposition proposed | `comment`: Breakdown summary + "Reply `@Feliz approve` to create issues" |
 | Agent run started | `thought`: "Started working on this (attempt N)" |

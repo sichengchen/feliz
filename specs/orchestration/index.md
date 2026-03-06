@@ -101,7 +101,7 @@ When `specs.enabled: false` (no spec concept at all):
 
 ## Entry Point: Mention-Based Discovery
 
-Work items enter the system when a user mentions `@Feliz` or delegates an issue to Feliz in Linear. This triggers an Agent Session webhook. Feliz does **not** poll for issues. See [Linear Integration](../linear/index.md) for details.
+Work items enter the system when a user assigns an issue to Feliz or @-mentions `@Feliz` in a comment. Both trigger an Agent Session webhook. Feliz does **not** poll for issues. See [Linear Integration](../linear/index.md) for details.
 
 When a new Agent Session is created:
 
@@ -188,7 +188,7 @@ New work items enter through the Agent Session webhook handler (not the tick).
 
 ### Scenario: New Mention Creates Work Item
 
-- **Given** a user mentions `@Feliz` or delegates an issue to Feliz
+- **Given** a user assigns an issue to Feliz or @-mentions `@Feliz`
 - **When** Linear fires an Agent Session `created` webhook
 - **Then** Feliz emits a `thought` activity, creates a WorkItem in `unclaimed`, and evaluates the first transition
 
