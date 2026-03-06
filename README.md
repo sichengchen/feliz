@@ -5,8 +5,9 @@ Turn Linear issues into merged pull requests. Feliz is a self-hosted platform th
 ## How it works
 
 ```
-Linear issue created
+Issue appears in mapped Linear project (any state)
   → Feliz polls and claims it
+  → Queues for execution
   → Creates isolated git worktree
   → Runs multi-step agent pipeline
   → Executes test/lint gates
@@ -14,7 +15,7 @@ Linear issue created
   → Updates Linear with results
 ```
 
-No dashboard needed. Linear is the interface.
+No dashboard needed. Linear is the interface. Every issue in a mapped project is picked up automatically.
 
 ## Quick start
 

@@ -12,12 +12,22 @@ Keep this terminal running. Feliz polls Linear on the configured interval (defau
 
 ## Create work in Linear
 
-In your mapped Linear project:
+Create an issue in your mapped Linear project with clear acceptance criteria. Feliz polls **all issues** in the project regardless of Linear state (Backlog, Todo, In Progress, etc.) — any new issue is picked up on the next poll cycle.
 
-1. Create an issue with clear acceptance criteria.
-2. Feliz picks it up on the next poll cycle, creates a worktree, and runs the pipeline.
+What happens after discovery:
+
+1. Issue is claimed and queued (or routed to spec drafting / decomposition if configured).
+2. An isolated git worktree is created.
+3. The pipeline runs (agent execution, gates, PR creation).
 
 No labels, commands, or special formatting needed — just write the issue.
+
+If nothing happens after creating an issue, check:
+
+- Is the daemon running? (`feliz status`)
+- Does the project name in `feliz.yml` match the Linear project exactly?
+- Is the repo cloned? (check `feliz status` or the workspace directory)
+- Is an agent CLI installed? (`feliz agent list`)
 
 ## Monitor
 
