@@ -93,4 +93,18 @@ describe("CodexAdapter", () => {
     const result = adapter.parseOutput(0, jsonl, "");
     expect(result.summary).toBe("Final summary here");
   });
+
+  test("maps auto policy to danger-full-access sandbox", () => {
+    const adapter = new CodexAdapter();
+    const args = adapter.buildArgs({
+      runId: "run-1",
+      workDir: "/tmp/work",
+      prompt: "Fix it",
+      timeout_ms: 600000,
+      maxTurns: 20,
+      approvalPolicy: "auto",
+      env: {},
+    });
+    expect(args).toContain("danger-full-access");
+  });
 });

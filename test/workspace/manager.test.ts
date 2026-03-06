@@ -96,4 +96,42 @@ describe("WorkspaceManager", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout.trim()).toBe("hello");
   });
+
+  test("cloneRepo creates repo directory", async () => {
+    // Create a local bare repo to clone from
+    const bareRepo = join(TEST_ROOT, "bare-repo.git");
+    mkdirSync(bareRepo, { recursive: true });
+    Bun.spawnSync(["git", "init", "--bare", "-b", "main"], { cwd: bareRepo });
+
+    const repoPath = await manager.cloneRepo("myproj", bareRepo);
+    expect(existsSync(repoPath)).toBe(true);
+    expect(repoPath).toBe(manager.getRepoPath("myproj"));
+  });
+
+  test("cloneRepo throws on invalid URL", async () => {
+    try {
+      await manager.cloneRepo("bad", "git@nonexistent:invalid/repo.git");
+      expect(true).toBe(false); // should not reach
+    } catch (e: any) {
+      expect(e.message).toContain("Failed to clone");
+    }
+  });
+});
+
+describe("sanitizeIdentifier edge cases", () => {
+  test("replaces spaces", () => {
+    expect(sanitizeIdentifier("hello world")).toBe("hello_world");
+  });
+
+  test("replaces slashes", () => {
+    expect(sanitizeIdentifier("a/b/c")).toBe("a_b_c");
+  });
+
+  test("preserves dashes", () => {
+    expect(sanitizeIdentifier("BAC-123-fix")).toBe("BAC-123-fix");
+  });
+
+  test("handles empty string", () => {
+    expect(sanitizeIdentifier("")).toBe("");
+  });
 });

@@ -80,3 +80,30 @@ describe("ClaudeCodeAdapter", () => {
     expect(result.exitCode).toBe(1);
   });
 });
+
+describe("ClaudeCodeAdapter - parseOutput edge cases", () => {
+  test("parseOutput detects timeout via exit code 137", () => {
+    const adapter = new ClaudeCodeAdapter();
+    const result = adapter.parseOutput(137, "", "killed");
+    expect(result.status).toBe("failed");
+    expect(result.exitCode).toBe(137);
+  });
+
+  test("parseOutput handles non-JSON stdout gracefully", () => {
+    const adapter = new ClaudeCodeAdapter();
+    const result = adapter.parseOutput(0, "not json", "");
+    expect(result.status).toBe("succeeded");
+    expect(result.summary).toBeUndefined();
+  });
+
+  test("parseOutput extracts summary from JSON result field", () => {
+    const adapter = new ClaudeCodeAdapter();
+    const result = adapter.parseOutput(
+      0,
+      JSON.stringify({ result: "Fixed the login bug by updating auth middleware" }),
+      ""
+    );
+    expect(result.status).toBe("succeeded");
+    expect(result.summary).toBe("Fixed the login bug by updating auth middleware");
+  });
+});

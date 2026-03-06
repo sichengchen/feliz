@@ -430,4 +430,306 @@ describe("Database", () => {
     const snap = db.getContextSnapshot("nonexistent");
     expect(snap).toBeNull();
   });
+
+  // listWorkItemsByState
+  test("lists work items by orchestration state", () => {
+    db.insertProject({
+      id: "proj-1",
+      name: "b",
+      repo_url: "u",
+      linear_project_name: "B",
+      base_branch: "main",
+    });
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "B-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "A",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+    db.upsertWorkItem({
+      id: "wi-2",
+      linear_id: "l2",
+      linear_identifier: "B-2",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "B",
+      description: "",
+      state: "Todo",
+      priority: 2,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "running",
+    });
+    const queued = db.listWorkItemsByState("proj-1", "queued");
+    expect(queued).toHaveLength(1);
+    expect(queued[0]!.id).toBe("wi-1");
+    const running = db.listWorkItemsByState("proj-1", "running");
+    expect(running).toHaveLength(1);
+    expect(running[0]!.id).toBe("wi-2");
+  });
+
+  // countRunningItems
+  test("counts running items across all projects", () => {
+    db.insertProject({
+      id: "proj-1",
+      name: "a",
+      repo_url: "u",
+      linear_project_name: "A",
+      base_branch: "main",
+    });
+    db.insertProject({
+      id: "proj-2",
+      name: "b",
+      repo_url: "u2",
+      linear_project_name: "B",
+      base_branch: "main",
+    });
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "A-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "A",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "running",
+    });
+    db.upsertWorkItem({
+      id: "wi-2",
+      linear_id: "l2",
+      linear_identifier: "B-1",
+      project_id: "proj-2",
+      parent_work_item_id: null,
+      title: "B",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "running",
+    });
+    db.upsertWorkItem({
+      id: "wi-3",
+      linear_id: "l3",
+      linear_identifier: "A-2",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "C",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+    expect(db.countRunningItems()).toBe(2);
+  });
+
+  // countRunningItemsByProject
+  test("counts running items for a specific project", () => {
+    db.insertProject({
+      id: "proj-1",
+      name: "a",
+      repo_url: "u",
+      linear_project_name: "A",
+      base_branch: "main",
+    });
+    db.insertProject({
+      id: "proj-2",
+      name: "b",
+      repo_url: "u2",
+      linear_project_name: "B",
+      base_branch: "main",
+    });
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "A-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "A",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "running",
+    });
+    db.upsertWorkItem({
+      id: "wi-2",
+      linear_id: "l2",
+      linear_identifier: "B-1",
+      project_id: "proj-2",
+      parent_work_item_id: null,
+      title: "B",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "running",
+    });
+    expect(db.countRunningItemsByProject("proj-1")).toBe(1);
+    expect(db.countRunningItemsByProject("proj-2")).toBe(1);
+  });
+
+  // updateRunProgress
+  test("updates run progress", () => {
+    seedRun();
+    db.updateRunProgress("run-1", "review", "check");
+    const run = db.getRun("run-1");
+    expect(run!.current_phase).toBe("review");
+    expect(run!.current_step).toBe("check");
+  });
+
+  // listChildWorkItems
+  test("lists child work items", () => {
+    db.insertProject({
+      id: "proj-1",
+      name: "b",
+      repo_url: "u",
+      linear_project_name: "B",
+      base_branch: "main",
+    });
+    db.upsertWorkItem({
+      id: "parent",
+      linear_id: "lp",
+      linear_identifier: "B-0",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Parent",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "decompose_review",
+    });
+    db.upsertWorkItem({
+      id: "child-1",
+      linear_id: "lc1",
+      linear_identifier: "B-1",
+      project_id: "proj-1",
+      parent_work_item_id: "parent",
+      title: "Child 1",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+    db.upsertWorkItem({
+      id: "child-2",
+      linear_id: "lc2",
+      linear_identifier: "B-2",
+      project_id: "proj-1",
+      parent_work_item_id: "parent",
+      title: "Child 2",
+      description: "",
+      state: "Todo",
+      priority: 2,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+    db.upsertWorkItem({
+      id: "other",
+      linear_id: "lo",
+      linear_identifier: "B-3",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Other",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+    const children = db.listChildWorkItems("parent");
+    expect(children).toHaveLength(2);
+    expect(children[0]!.title).toBe("Child 1");
+    expect(children[1]!.title).toBe("Child 2");
+  });
+
+  // listStepExecutionsForRun
+  test("lists step executions for a run in order", () => {
+    seedRun();
+    db.insertStepExecution({
+      id: "se-1",
+      run_id: "run-1",
+      phase_name: "execute",
+      step_name: "write_code",
+      cycle: 1,
+      step_attempt: 1,
+      agent_adapter: "claude-code",
+    });
+    db.insertStepExecution({
+      id: "se-2",
+      run_id: "run-1",
+      phase_name: "execute",
+      step_name: "run_tests",
+      cycle: 1,
+      step_attempt: 1,
+      agent_adapter: "claude-code",
+    });
+    const steps = db.listStepExecutionsForRun("run-1");
+    expect(steps).toHaveLength(2);
+    expect(steps[0]!.step_name).toBe("write_code");
+    expect(steps[1]!.step_name).toBe("run_tests");
+  });
+
+  // getProjectByName
+  test("gets project by name", () => {
+    db.insertProject({
+      id: "proj-1",
+      name: "backend",
+      repo_url: "u",
+      linear_project_name: "B",
+      base_branch: "main",
+    });
+    const project = db.getProjectByName("backend");
+    expect(project).not.toBeNull();
+    expect(project!.id).toBe("proj-1");
+    const missing = db.getProjectByName("nonexistent");
+    expect(missing).toBeNull();
+  });
+
+  // getLatestRunForWorkItem
+  test("gets latest run for work item", () => {
+    seedProjectAndWorkItem();
+    db.insertRun({
+      id: "run-1",
+      work_item_id: "wi-1",
+      attempt: 1,
+      current_phase: "execute",
+      current_step: "run",
+      context_snapshot_id: "snap-1",
+    });
+    db.insertRun({
+      id: "run-2",
+      work_item_id: "wi-1",
+      attempt: 2,
+      current_phase: "execute",
+      current_step: "run",
+      context_snapshot_id: "snap-2",
+    });
+    const latest = db.getLatestRunForWorkItem("wi-1");
+    expect(latest).not.toBeNull();
+    expect(latest!.id).toBe("run-2");
+    expect(latest!.attempt).toBe(2);
+  });
 });

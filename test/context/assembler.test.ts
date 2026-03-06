@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { ContextAssembler } from "../../src/context/assembler.ts";
 import { Database } from "../../src/db/database.ts";
-import { existsSync, unlinkSync, mkdirSync, rmSync, writeFileSync } from "fs";
+import { existsSync, unlinkSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 
 const TEST_DB = "/tmp/feliz-context-test.db";
@@ -198,5 +198,37 @@ describe("ContextAssembler", () => {
     const assembler = new ContextAssembler(db, TEST_SCRATCH_DIR);
     const specContent = assembler.readSpecsAsText(TEST_WORK_DIR, "specs");
     expect(specContent).toBeNull();
+  });
+
+  test("writeScratchpad creates file and returns path", () => {
+    const assembler = new ContextAssembler(db, TEST_SCRATCH_DIR);
+    const filePath = assembler.writeScratchpad(
+      "test",
+      "run-1",
+      "output.txt",
+      "Agent output content"
+    );
+    expect(existsSync(filePath)).toBe(true);
+    const content = readFileSync(filePath, "utf-8");
+    expect(content).toBe("Agent output content");
+  });
+
+  test("context snapshot stores artifact refs", () => {
+    // Create memory so snapshot has something to reference
+    const memoryDir = join(TEST_WORK_DIR, ".feliz", "context", "memory");
+    mkdirSync(join(memoryDir, "conventions"), { recursive: true });
+    writeFileSync(
+      join(memoryDir, "conventions", "orm.md"),
+      "Use Drizzle ORM"
+    );
+
+    const assembler = new ContextAssembler(db, TEST_SCRATCH_DIR);
+    const context = assembler.assemble("proj-1", "wi-1", TEST_WORK_DIR);
+    const snapshotId = assembler.createSnapshot("run-1", "wi-1", context);
+
+    // Verify snapshot was stored correctly
+    const snap = db.getContextSnapshot(snapshotId);
+    expect(snap).not.toBeNull();
+    expect(snap!.work_item_id).toBe("wi-1");
   });
 });

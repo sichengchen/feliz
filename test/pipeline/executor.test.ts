@@ -479,4 +479,261 @@ describe("PipelineExecutor", () => {
     expect(steps[0]!.step_name).toBe("run");
     expect(steps[0]!.result).toBe("succeeded");
   });
+
+  test("default success: step succeeds when agent exits 0 and no success condition", async () => {
+    const adapter = makeAdapter();
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "execute",
+          steps: [
+            {
+              name: "run",
+              agent: "test-agent",
+              // No success condition specified
+            },
+          ],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(db, { "test-agent": adapter });
+    const result = await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: () => "prompt",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  test("default success: step fails when agent exits non-zero and no success condition", async () => {
+    const adapter = makeFailAdapter();
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "execute",
+          steps: [
+            {
+              name: "run",
+              agent: "test-agent",
+              // No success condition specified
+            },
+          ],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(db, { "test-agent": adapter });
+    const result = await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: () => "prompt",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  test("per-step agent adapter selection", async () => {
+    const agent1 = makeAdapter({ stdout: "agent1" });
+    const agent2 = makeAdapter({ stdout: "agent2" });
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "execute",
+          steps: [
+            { name: "step1", agent: "agent-1", success: { always: true } },
+            { name: "step2", agent: "agent-2", success: { always: true } },
+          ],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(db, { "agent-1": agent1, "agent-2": agent2 });
+    const result = await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: () => "prompt",
+    });
+
+    expect(result.success).toBe(true);
+    expect(agent1.execute).toHaveBeenCalledTimes(1);
+    expect(agent2.execute).toHaveBeenCalledTimes(1);
+  });
+
+  test("fails when agent adapter not found", async () => {
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "execute",
+          steps: [
+            { name: "run", agent: "nonexistent-agent", success: { always: true } },
+          ],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(db, {});
+    const result = await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: () => "prompt",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.failureReason).toContain("nonexistent-agent");
+  });
+
+  test("multiple phases execute sequentially", async () => {
+    const callOrder: string[] = [];
+    const adapter: AgentAdapter = {
+      name: "test-agent",
+      isAvailable: async () => true,
+      execute: mock(async (params: any) => {
+        callOrder.push(params.prompt);
+        return {
+          status: "succeeded" as const,
+          exitCode: 0,
+          stdout: "done",
+          stderr: "",
+          filesChanged: [],
+        };
+      }),
+      cancel: mock(async () => {}),
+    };
+
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "phase1",
+          steps: [{ name: "step1", agent: "test-agent", success: { always: true } }],
+        },
+        {
+          name: "phase2",
+          steps: [{ name: "step2", agent: "test-agent", success: { always: true } }],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(db, { "test-agent": adapter });
+    const result = await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: (phase, step) => `${phase}/${step}`,
+    });
+
+    expect(result.success).toBe(true);
+    expect(callOrder).toEqual(["phase1/step1", "phase2/step2"]);
+  });
+
+  test("promptRenderer receives correct arguments", async () => {
+    const receivedArgs: any[] = [];
+    const adapter = makeAdapter();
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "implement",
+          steps: [
+            { name: "write_code", agent: "test-agent", success: { always: true } },
+          ],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(db, { "test-agent": adapter });
+    await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: (phase, step, cycle) => {
+        receivedArgs.push({ phase, step, cycle });
+        return "prompt";
+      },
+    });
+
+    expect(receivedArgs).toHaveLength(1);
+    expect(receivedArgs[0]).toEqual({ phase: "implement", step: "write_code", cycle: 1 });
+  });
+
+  test("cycle counter increments on phase repeat", async () => {
+    const receivedCycles: number[] = [];
+    let callCount = 0;
+    const adapter: AgentAdapter = {
+      name: "test-agent",
+      isAvailable: async () => true,
+      execute: mock(async () => {
+        callCount++;
+        return {
+          status: "succeeded" as const,
+          exitCode: 0,
+          stdout: callCount >= 3 ? "approved" : "needs work",
+          stderr: "",
+          filesChanged: [],
+        };
+      }),
+      cancel: mock(async () => {}),
+    };
+
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "review",
+          repeat: { max: 3, on_exhaust: "fail" },
+          steps: [
+            { name: "check", agent: "test-agent", success: { agent_verdict: "approved" } },
+          ],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(db, { "test-agent": adapter });
+    await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: (_phase, _step, cycle) => {
+        receivedCycles.push(cycle);
+        return "prompt";
+      },
+    });
+
+    expect(receivedCycles).toEqual([1, 2, 3]);
+  });
+
+  test("passes approval policy to agent via agentConfig", async () => {
+    const adapter = makeAdapter();
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "execute",
+          steps: [
+            { name: "run", agent: "test-agent", success: { always: true } },
+          ],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(
+      db,
+      { "test-agent": adapter },
+      { approval_policy: "gated", timeout_ms: 300000, max_turns: 10 }
+    );
+    await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: () => "prompt",
+    });
+
+    const call = (adapter.execute as ReturnType<typeof mock>).mock.calls[0]!;
+    const params = call[0] as any;
+    expect(params.approvalPolicy).toBe("gated");
+    expect(params.timeout_ms).toBe(300000);
+    expect(params.maxTurns).toBe(10);
+  });
 });

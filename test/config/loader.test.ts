@@ -158,6 +158,61 @@ concurrency:
       "In Progress": 5,
     });
   });
+
+  test("parses hooks correctly", () => {
+    const yaml = `
+agent:
+  adapter: claude-code
+hooks:
+  after_create: npm install
+  before_run: npm run lint
+  after_run: npm test
+  before_remove: npm run cleanup
+`;
+    const config = loadRepoConfig(yaml);
+    expect(config.hooks.after_create).toBe("npm install");
+    expect(config.hooks.before_run).toBe("npm run lint");
+    expect(config.hooks.after_run).toBe("npm test");
+    expect(config.hooks.before_remove).toBe("npm run cleanup");
+  });
+
+  test("parses concurrency.max_per_state", () => {
+    const yaml = `
+agent:
+  adapter: claude-code
+concurrency:
+  max_per_state:
+    Todo: 2
+    "In Progress": 4
+`;
+    const config = loadRepoConfig(yaml);
+    expect(config.concurrency.max_per_state).toEqual({
+      Todo: 2,
+      "In Progress": 4,
+    });
+  });
+
+  test("defaults hooks to undefined when not specified", () => {
+    const yaml = `
+agent:
+  adapter: claude-code
+`;
+    const config = loadRepoConfig(yaml);
+    expect(config.hooks.after_create).toBeUndefined();
+    expect(config.hooks.before_run).toBeUndefined();
+    expect(config.hooks.after_run).toBeUndefined();
+    expect(config.hooks.before_remove).toBeUndefined();
+  });
+
+  test("defaults gates to undefined when not specified", () => {
+    const yaml = `
+agent:
+  adapter: claude-code
+`;
+    const config = loadRepoConfig(yaml);
+    expect(config.gates.test_command).toBeUndefined();
+    expect(config.gates.lint_command).toBeUndefined();
+  });
 });
 
 describe("loadPipelineConfig", () => {
