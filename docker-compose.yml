@@ -9,7 +9,7 @@ services:
       - feliz-agent-creds:/root
     environment:
       - SSH_AUTH_SOCK=/ssh-agent
-      - LINEAR_API_KEY
+      - LINEAR_OAUTH_TOKEN
       - GITHUB_TOKEN
       - GIT_AUTHOR_NAME
       - GIT_AUTHOR_EMAIL
