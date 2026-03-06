@@ -19,9 +19,7 @@ feliz run retry <work_item>    # Manually retry a failed work item
 feliz context show <work_item> # Show context snapshot for a work item
 feliz context history <project># Show history events for a project
 
-feliz agent list               # List installed agents and auth status
-feliz agent login <name>       # Authenticate an agent (OAuth or API key)
-feliz agent install <name>     # Install an agent CLI
+feliz agent list               # List installed agents and availability
 
 feliz config validate          # Validate feliz.yml and all .feliz/ configs
 feliz config show              # Print resolved configuration
