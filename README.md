@@ -83,6 +83,7 @@ See [docs/configuration.md](docs/configuration.md).
 | [Pipelines](docs/pipelines.md) | Multi-phase pipeline definition |
 | [Agents](docs/agents.md) | Agent adapters and custom agents |
 | [CLI](docs/cli.md) | Full command reference |
+| [Skills](docs/skills.md) | Claude Code skills for setup and project config |
 
 ## Specs
 
