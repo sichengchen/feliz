@@ -9,7 +9,7 @@ const CONFIG_PATH = join(TEST_DIR, "feliz.yml");
 
 const SAMPLE_CONFIG = `# Feliz configuration
 linear:
-  api_key: test-key
+  oauth_token: test-key
 
 projects:
   - name: backend
@@ -150,7 +150,7 @@ describe("project add/remove edge cases", () => {
 
     writeFileSync(
       CONFIG_PATH,
-      `linear:\n  api_key: test-key\nstorage:\n  workspace_root: ${workspaceRoot}\nprojects:\n  - name: backend\n    repo: git@github.com:org/backend.git\n    linear_project: Backend\n`
+      `linear:\n  oauth_token: test-key\nstorage:\n  workspace_root: ${workspaceRoot}\nprojects:\n  - name: backend\n    repo: git@github.com:org/backend.git\n    linear_project: Backend\n`
     );
 
     removeProjectFromConfig(CONFIG_PATH, "backend");

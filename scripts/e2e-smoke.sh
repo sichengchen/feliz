@@ -10,7 +10,7 @@ Runs:
   2) feliz e2e smoke (with JSON report output)
 
 Environment:
-  LINEAR_API_KEY   Required when config uses $LINEAR_API_KEY
+  LINEAR_OAUTH_TOKEN   Required when config uses $LINEAR_OAUTH_TOKEN
   GITHUB_TOKEN     Recommended for publish/auth checks
   E2E_CONFIG_PATH  Optional default for --config
   E2E_REPORT_PATH  Optional default for --report
@@ -58,8 +58,8 @@ if [[ -n "${ENV_FILE}" ]]; then
   set +a
 fi
 
-if [[ -z "${LINEAR_API_KEY:-}" ]]; then
-  echo "LINEAR_API_KEY is not set." >&2
+if [[ -z "${LINEAR_OAUTH_TOKEN:-}" ]]; then
+  echo "LINEAR_OAUTH_TOKEN is not set." >&2
   echo "Set it in your shell or via --env-file scripts/e2e.env.example" >&2
   exit 1
 fi

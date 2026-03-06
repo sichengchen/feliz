@@ -29,7 +29,7 @@ Options:
   --help, -h                Show help
 
 Environment (can be placed in --env-file):
-  LINEAR_API_KEY            Required
+  LINEAR_OAUTH_TOKEN            Required
   GITHUB_TOKEN              Recommended
   E2E_GH_OWNER              Optional default for --repo-owner
   E2E_REPO_NAME             Optional default for --repo-name
@@ -146,8 +146,8 @@ for cmd in bun gh git sqlite3; do
   fi
 done
 
-if [[ -z "${LINEAR_API_KEY:-}" ]]; then
-  echo "LINEAR_API_KEY is not set." >&2
+if [[ -z "${LINEAR_OAUTH_TOKEN:-}" ]]; then
+  echo "LINEAR_OAUTH_TOKEN is not set." >&2
   echo "Set it in your shell or via --env-file." >&2
   exit 1
 fi
@@ -293,7 +293,7 @@ phases:
         success:
           command: "bun test && bun run lint"
       - name: create_pr
-        builtin: publish
+        prompt: .feliz/prompts/publish.md
 EOF
   fi
 
@@ -344,14 +344,14 @@ check_linear_project() {
 import { LinearClient } from "./src/linear/client.ts";
 
 const target = (process.env.LINEAR_PROJECT_TO_CHECK ?? "").trim();
-const key = process.env.LINEAR_API_KEY ?? "";
+const key = process.env.LINEAR_OAUTH_TOKEN ?? "";
 
 if (!target) {
   console.error("Linear project name is empty.");
   process.exit(2);
 }
 if (!key) {
-  console.error("LINEAR_API_KEY is not set.");
+  console.error("LINEAR_OAUTH_TOKEN is not set.");
   process.exit(2);
 }
 
@@ -396,9 +396,9 @@ check_linear_project "${LINEAR_PROJECT}"
 mkdir -p "$(dirname "${CONFIG_PATH}")"
 cat > "${CONFIG_PATH}" <<EOF
 linear:
-  api_key: \$LINEAR_API_KEY
+  oauth_token: \$LINEAR_OAUTH_TOKEN
 
-polling:
+tick:
   interval_ms: 5000
 
 storage:

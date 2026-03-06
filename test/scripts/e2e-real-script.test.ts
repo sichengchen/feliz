@@ -15,7 +15,7 @@ describe("E2E real automation script", () => {
     expect(content).toContain("scripts/e2e-smoke.sh");
     expect(content).toContain("src/cli/index.ts start");
     expect(content).toContain("src/linear/client.ts");
-    expect(content).toContain("LINEAR_API_KEY");
+    expect(content).toContain("LINEAR_OAUTH_TOKEN");
     expect(content).toContain("E2E_GH_OWNER");
     expect(content).toContain("E2E_LINEAR_PROJECT");
   });
