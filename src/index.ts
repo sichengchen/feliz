@@ -14,7 +14,8 @@ export type { Project, WorkItem, Run, StepExecution, HistoryEntry, Orchestration
 // Linear
 export { LinearClient } from "./linear/client.ts";
 export type { LinearIssue, FetchResult } from "./linear/client.ts";
-export { IssuePoller } from "./linear/poller.ts";
+export { WebhookHandler } from "./linear/webhook.ts";
+export type { AgentSessionEvent, WebhookResult } from "./linear/webhook.ts";
 export { parseCommand } from "./linear/commands.ts";
 export type { FelizCommand } from "./linear/commands.ts";
 
@@ -42,10 +43,6 @@ export { computeRetryDelay, shouldRetry } from "./orchestrator/retry.ts";
 export { SpecEngine } from "./orchestrator/spec-engine.ts";
 export { DecompositionEngine } from "./orchestrator/decomposition.ts";
 export type { SubIssueProposal } from "./orchestrator/decomposition.ts";
-
-// Publishing
-export { Publisher } from "./publishing/publisher.ts";
-export type { PublishParams, PublishResult, GateResult } from "./publishing/publisher.ts";
 
 // Server
 export { FelizServer } from "./server.ts";
