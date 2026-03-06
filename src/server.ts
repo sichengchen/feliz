@@ -54,6 +54,13 @@ export class FelizServer {
   async start(): Promise<void> {
     this.running = true;
     writePidFile(this.config.storage.data_dir);
+
+    const shutdown = () => {
+      this.stop();
+    };
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
+
     this.logger.info("Feliz server started", {
       projects: this.config.projects.length,
       polling_interval: this.config.polling.interval_ms,

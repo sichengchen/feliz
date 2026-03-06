@@ -41,4 +41,16 @@ describe("stop command", () => {
     const { readPidFile } = await import("../../src/pid.ts");
     expect(readPidFile(TEST_DIR)).toBeNull();
   });
+
+  test("readPidFile returns null for non-numeric content", async () => {
+    const { readPidFile } = await import("../../src/pid.ts");
+    writeFileSync(PID_FILE, "not-a-number\n");
+    expect(readPidFile(TEST_DIR)).toBeNull();
+  });
+
+  test("readPidFile returns null for empty file", async () => {
+    const { readPidFile } = await import("../../src/pid.ts");
+    writeFileSync(PID_FILE, "");
+    expect(readPidFile(TEST_DIR)).toBeNull();
+  });
 });

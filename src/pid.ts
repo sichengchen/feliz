@@ -16,6 +16,7 @@ export function readPidFile(dataDir: string): number | null {
   const path = join(dataDir, PID_FILENAME);
   if (!existsSync(path)) return null;
   const content = readFileSync(path, "utf-8").trim();
+  if (!content) return null;
   const pid = Number(content);
-  return Number.isFinite(pid) ? pid : null;
+  return Number.isFinite(pid) && pid > 0 ? pid : null;
 }
