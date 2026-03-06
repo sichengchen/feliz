@@ -26,10 +26,7 @@ export function loadFelizConfig(yamlContent: string): FelizConfig {
     throw new Error("linear.oauth_token is required");
   }
 
-  const rawProjects = raw.projects as Record<string, unknown>[] | undefined;
-  if (!rawProjects || rawProjects.length === 0) {
-    throw new Error("At least one project must be configured");
-  }
+  const rawProjects = (raw.projects as Record<string, unknown>[] | undefined) || [];
 
   const projects: ProjectConfig[] = rawProjects.map((p) => {
     if (!p.repo) throw new Error(`projects[].repo is required for project "${p.name}"`);

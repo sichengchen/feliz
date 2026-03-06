@@ -85,15 +85,23 @@ projects:
     expect(() => loadFelizConfig(yaml)).toThrow("linear.oauth_token is required");
   });
 
-  test("throws when projects is empty", () => {
+  test("accepts empty projects array", () => {
     const yaml = `
 linear:
   oauth_token: test
 projects: []
 `;
-    expect(() => loadFelizConfig(yaml)).toThrow(
-      "At least one project must be configured"
-    );
+    const config = loadFelizConfig(yaml);
+    expect(config.projects).toEqual([]);
+  });
+
+  test("accepts missing projects key", () => {
+    const yaml = `
+linear:
+  oauth_token: test
+`;
+    const config = loadFelizConfig(yaml);
+    expect(config.projects).toEqual([]);
   });
 
   test("throws when project is missing required fields", () => {
