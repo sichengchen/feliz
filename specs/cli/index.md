@@ -54,15 +54,11 @@ An interactive wizard that adds a new project mapping to `feliz.yml`. The wizard
 4. **Base branch** — prompts for the base branch (default: `main`)
 5. **Clone** — clones the repo via `WorkspaceManager.cloneRepo()`
 6. **Detect `.feliz/`** — checks if `.feliz/config.yml` already exists in the cloned repo
-7. **Scaffold** (if missing) — scaffolds `.feliz/` via agent first, with template fallback:
-   - Prompts for scaffold adapter (default from `agent.default` in `feliz.yml`)
-   - Prompts for specs enabled + optional test/lint commands
-   - Invokes the selected agent in the cloned repo to generate:
-     - `.feliz/config.yml` — repo settings
-     - `.feliz/pipeline.yml` — default pipeline from `getDefaultPipeline()`
-     - `.feliz/prompts/` — empty prompts directory
-     - `WORKFLOW.md` — default prompt template
-   - If adapter is unavailable, agent run fails, or generated files are invalid, wizard falls back to deterministic template scaffold using the same answers
+7. **Scaffold** (if missing) — prompts for agent adapter, specs, test/lint commands, then creates:
+   - `.feliz/config.yml` — repo settings
+   - `.feliz/pipeline.yml` — default pipeline from `getDefaultPipeline()`
+   - `.feliz/prompts/` — empty prompts directory
+   - `WORKFLOW.md` — default prompt template
 8. **Commit & push** (if scaffolded) — optionally commits and pushes the `.feliz/` config to the repo
 9. **Add to `feliz.yml`** — appends the project entry using `addProjectToConfig()`
 
