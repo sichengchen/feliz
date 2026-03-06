@@ -130,6 +130,39 @@ async function main() {
     return;
   }
 
+  if (cmd.command === "stop") {
+    try {
+      const content = readFileSync(configPath, "utf-8");
+      const config = loadFelizConfig(content);
+      const { readPidFile } = await import("../pid.ts");
+      const pid = readPidFile(config.storage.data_dir);
+      if (pid === null) {
+        console.log("Feliz is not running (no PID file found).");
+        return;
+      }
+      try {
+        process.kill(pid, "SIGTERM");
+        console.log(`Stopped Feliz daemon (PID ${pid}).`);
+      } catch (e: any) {
+        if (e.code === "ESRCH") {
+          console.log(`Feliz is not running (stale PID ${pid}). Cleaning up.`);
+          const { removePidFile } = await import("../pid.ts");
+          removePidFile(config.storage.data_dir);
+        } else {
+          throw e;
+        }
+      }
+    } catch (e: any) {
+      if (e.message?.includes("api_key") || e.message?.includes("project")) {
+        console.log("Feliz is not running (no PID file found).");
+      } else {
+        console.error(`Error: ${e.message}`);
+        process.exit(1);
+      }
+    }
+    return;
+  }
+
   if (cmd.command === "start") {
     if (!existsSync(configPath)) {
       const { CONFIG_TEMPLATE, writeConfigFile } = await import("../config/writer.ts");

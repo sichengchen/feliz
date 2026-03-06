@@ -17,6 +17,7 @@ import type { FelizConfig } from "./config/types.ts";
 import type { AgentAdapter } from "./agents/adapter.ts";
 import { existsSync, readFileSync, mkdirSync } from "fs";
 import { join } from "path";
+import { writePidFile, removePidFile } from "./pid.ts";
 
 export class FelizServer {
   private config: FelizConfig;
@@ -52,6 +53,7 @@ export class FelizServer {
 
   async start(): Promise<void> {
     this.running = true;
+    writePidFile(this.config.storage.data_dir);
     this.logger.info("Feliz server started", {
       projects: this.config.projects.length,
       polling_interval: this.config.polling.interval_ms,
@@ -93,6 +95,7 @@ export class FelizServer {
 
   async stop(): Promise<void> {
     this.running = false;
+    removePidFile(this.config.storage.data_dir);
     this.logger.info("Feliz server stopping");
     this.db.close();
   }
