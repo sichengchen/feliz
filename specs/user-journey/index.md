@@ -155,16 +155,16 @@ Feliz is now running but has no projects configured.
    Cloning repo... done.
 
    Repo config (.feliz/) not found. Generate starter config?
-     Agent adapter [claude-code]: claude-code
+     Scaffold adapter [claude-code]: claude-code
      Enable specs? [Y/n]: Y
-     Specs directory [specs]: specs
      Test command: bun test
      Lint command: bun run lint
 
+   Generating .feliz/ with claude-code... done.
    Generated:
      .feliz/config.yml    (agent, hooks, gates, specs settings)
      .feliz/pipeline.yml  (default pipeline: implement → review → publish)
-     .feliz/prompts/       (starter prompt templates)
+     .feliz/prompts/      (starter prompt templates)
      WORKFLOW.md          (default prompt template)
 
    Commit and push config to repo? [Y/n]: Y
@@ -173,7 +173,7 @@ Feliz is now running but has no projects configured.
    Project "payments-service" added.
    ```
 
-   If the repo already has `.feliz/` config, the wizard skips generation and uses the existing config.
+   If the repo already has `.feliz/` config, the wizard skips generation and uses the existing config. If agent scaffolding fails or produces invalid config, the wizard falls back to deterministic template generation.
 
 4. **Verify**:
    ```bash
