@@ -238,6 +238,19 @@ async function main() {
     return;
   }
 
+  if (cmd.command === "agent" && cmd.subcommand === "list") {
+    const { ClaudeCodeAdapter } = await import("../agents/claude-code.ts");
+    const { CodexAdapter } = await import("../agents/codex.ts");
+    const adapters = [new ClaudeCodeAdapter(), new CodexAdapter()];
+    console.log("Agent          Available");
+    console.log("─".repeat(30));
+    for (const a of adapters) {
+      const available = await a.isAvailable();
+      console.log(`${a.name.padEnd(15)}${available ? "yes" : "no"}`);
+    }
+    return;
+  }
+
   if (cmd.command === "init") {
     const { runInit } = await import("./init.ts");
     await runInit(configPath);
