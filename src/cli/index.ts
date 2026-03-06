@@ -6,6 +6,7 @@ import { createLogger } from "../logger/index.ts";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { validateAllConfigs } from "./validate.ts";
 
 const HELP_TEXT = `
 feliz - Cloud agents platform
@@ -66,8 +67,10 @@ async function main() {
 
   if (cmd.command === "config" && cmd.subcommand === "validate") {
     try {
-      loadConfig(configPath);
-      console.log("Configuration is valid.");
+      const result = validateAllConfigs(configPath);
+      console.log(
+        `Configuration is valid. Validated ${result.validated_projects} project(s), ${result.checked_repo_configs} repo config(s), ${result.checked_pipelines} pipeline config(s).`
+      );
     } catch (e: any) {
       console.error(`Configuration error: ${e.message}`);
       process.exit(1);
