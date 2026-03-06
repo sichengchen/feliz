@@ -343,19 +343,26 @@ async function main() {
         console.error("Config file not found. Run `feliz init` first.");
         process.exit(1);
       }
-      const rl = await import("readline");
-      const iface = rl.createInterface({ input: process.stdin, output: process.stdout });
-      const ask = (q: string): Promise<string> =>
-        new Promise((resolve) => iface.question(q, resolve));
-      const name = await ask("Project name: ");
-      const repo = await ask("Git repo URL: ");
-      const linearProject = await ask("Linear project name: ");
-      const branch = (await ask("Base branch (main): ")) || "main";
-      iface.close();
-
+      const config = loadConfig(configPath);
+      const { LinearClient } = await import("../linear/client.ts");
+      const { WorkspaceManager } = await import("../workspace/manager.ts");
       const { addProjectToConfig } = await import("./project.ts");
-      addProjectToConfig(configPath, { name, repo, linear_project: linearProject, branch });
-      console.log(`Added project "${name}".`);
+      const { repoHasFelizConfig, writeRepoScaffold, gitCommitAndPush } = await import("./repo-scaffold.ts");
+      const { runProjectAddWizard } = await import("./project-add-wizard.ts");
+
+      const linearClient = new LinearClient(config.linear.api_key);
+      const workspace = new WorkspaceManager(config.storage.workspace_root);
+
+      await runProjectAddWizard({
+        prompt: globalThis.prompt,
+        fetchProjects: () => linearClient.fetchProjects(),
+        cloneRepo: (name, url) => workspace.cloneRepo(name, url),
+        repoHasFelizConfig,
+        writeRepoScaffold,
+        gitCommitAndPush,
+        addProjectToConfig,
+        configPath,
+      });
     } catch (e: any) {
       console.error(`Error: ${e.message}`);
       process.exit(1);
