@@ -31,15 +31,15 @@ describe("loadFelizConfig", () => {
   test("parses valid feliz.yml with defaults", () => {
     const yaml = `
 linear:
-  api_key: test-key
+  oauth_token: test-key
 projects:
   - name: backend
     repo: git@github.com:org/backend.git
     linear_project: Backend
 `;
     const config = loadFelizConfig(yaml);
-    expect(config.linear.api_key).toBe("test-key");
-    expect(config.polling.interval_ms).toBe(30000);
+    expect(config.linear.oauth_token).toBe("test-key");
+    expect(config.tick.interval_ms).toBe(5000);
     expect(config.storage.data_dir).toContain(".feliz");
     expect(config.agent.default).toBe("claude-code");
     expect(config.agent.max_concurrent).toBe(5);
@@ -51,8 +51,8 @@ projects:
   test("parses full feliz.yml with overrides", () => {
     const yaml = `
 linear:
-  api_key: sk-123
-polling:
+  oauth_token: sk-123
+tick:
   interval_ms: 60000
 storage:
   data_dir: /data/feliz
@@ -67,7 +67,7 @@ projects:
     branch: develop
 `;
     const config = loadFelizConfig(yaml);
-    expect(config.polling.interval_ms).toBe(60000);
+    expect(config.tick.interval_ms).toBe(60000);
     expect(config.storage.data_dir).toBe("/data/feliz");
     expect(config.storage.workspace_root).toBe("/data/feliz/ws");
     expect(config.agent.default).toBe("codex");
@@ -75,20 +75,20 @@ projects:
     expect(config.projects[0]!.branch).toBe("develop");
   });
 
-  test("throws when linear.api_key is missing", () => {
+  test("throws when linear.oauth_token is missing", () => {
     const yaml = `
 projects:
   - name: x
     repo: git@github.com:org/x.git
     linear_project: X
 `;
-    expect(() => loadFelizConfig(yaml)).toThrow("linear.api_key is required");
+    expect(() => loadFelizConfig(yaml)).toThrow("linear.oauth_token is required");
   });
 
   test("throws when projects is empty", () => {
     const yaml = `
 linear:
-  api_key: test
+  oauth_token: test
 projects: []
 `;
     expect(() => loadFelizConfig(yaml)).toThrow(
@@ -99,7 +99,7 @@ projects: []
   test("throws when project is missing required fields", () => {
     const yaml = `
 linear:
-  api_key: test
+  oauth_token: test
 projects:
   - name: x
 `;
@@ -111,7 +111,7 @@ describe("loadFelizProjectAddConfig", () => {
   test("parses config required for project add when projects is empty", () => {
     const yaml = `
 linear:
-  api_key: test-key
+  oauth_token: test-key
 agent:
   default: codex
 projects: []
@@ -119,7 +119,7 @@ storage:
   workspace_root: /tmp/feliz-workspaces
 `;
     const config = loadFelizProjectAddConfig(yaml);
-    expect(config.linear.api_key).toBe("test-key");
+    expect(config.linear.oauth_token).toBe("test-key");
     expect(config.storage.workspace_root).toBe("/tmp/feliz-workspaces");
     expect(config.agent.default).toBe("codex");
   });
@@ -127,19 +127,19 @@ storage:
   test("uses default scaffold adapter when agent.default is missing", () => {
     const yaml = `
 linear:
-  api_key: test-key
+  oauth_token: test-key
 projects: []
 `;
     const config = loadFelizProjectAddConfig(yaml);
     expect(config.agent.default).toBe("claude-code");
   });
 
-  test("throws when linear.api_key is missing", () => {
+  test("throws when linear.oauth_token is missing", () => {
     const yaml = `
 projects: []
 `;
     expect(() => loadFelizProjectAddConfig(yaml)).toThrow(
-      "linear.api_key is required"
+      "linear.oauth_token is required"
     );
   });
 });
@@ -268,7 +268,7 @@ phases:
   - name: publish
     steps:
       - name: create_pr
-        builtin: publish
+        prompt: .feliz/prompts/publish.md
 `;
     const pipeline = loadPipelineConfig(yaml);
     expect(pipeline.phases).toHaveLength(2);
@@ -277,7 +277,7 @@ phases:
     expect(pipeline.phases[0]!.steps[0]!.agent).toBe("claude-code");
     expect(pipeline.phases[0]!.steps[0]!.success?.command).toBe("npm test");
     expect(pipeline.phases[0]!.steps[0]!.max_attempts).toBe(3);
-    expect(pipeline.phases[1]!.steps[0]!.builtin).toBe("publish");
+    expect(pipeline.phases[1]!.steps[0]!.prompt).toBe(".feliz/prompts/publish.md");
   });
 
   test("parses pipeline with repeat phases", () => {
@@ -309,7 +309,7 @@ describe("getDefaultPipeline", () => {
     expect(pipeline.phases[0]!.steps).toHaveLength(2);
     expect(pipeline.phases[0]!.steps[0]!.name).toBe("run");
     expect(pipeline.phases[0]!.steps[0]!.prompt).toBe("WORKFLOW.md");
-    expect(pipeline.phases[0]!.steps[1]!.builtin).toBe("publish");
+    expect(pipeline.phases[0]!.steps[1]!.prompt).toBe(".feliz/prompts/publish.md");
   });
 
   test("includes test command in success condition when provided", () => {

@@ -466,65 +466,6 @@ describe("Orchestrator", () => {
     expect(snapshot!.run_id).toBe(run!.id);
   });
 
-  test("Given a publish builtin step When pipeline succeeds Then PR URL is persisted from publisher", async () => {
-    db.upsertWorkItem({
-      id: "wi-publish",
-      linear_id: "l-publish",
-      linear_identifier: "T-PUB",
-      project_id: "proj-1",
-      parent_work_item_id: null,
-      title: "Publish item",
-      description: "",
-      state: "Todo",
-      priority: 1,
-      labels: [],
-      blocker_ids: [],
-      orchestration_state: "queued",
-    });
-
-    const publish = mock(async () => ({
-      prUrl: "https://github.com/org/repo/pull/123",
-    }));
-
-    const pipeline: PipelineDefinition = {
-      phases: [
-        {
-          name: "execute",
-          steps: [
-            {
-              name: "run",
-              agent: "test-agent",
-              success: { always: true },
-            },
-            {
-              name: "create_pr",
-              builtin: "publish",
-            },
-          ],
-        },
-      ],
-    };
-
-    const orch = new Orchestrator(
-      db,
-      { "test-agent": makeSuccessAdapter() },
-      makeRepoConfig(),
-      TEST_SCRATCH,
-      5,
-      {
-        publisher: {
-          publish,
-        } as any,
-      }
-    );
-
-    await orch.dispatchQueued("proj-1", pipeline, TEST_WORK_DIR);
-
-    expect(publish).toHaveBeenCalledTimes(1);
-    const run = db.getLatestRunForWorkItem("wi-publish");
-    expect(run!.pr_url).toBe("https://github.com/org/repo/pull/123");
-  });
-
   test("Given workspace manager is configured When dispatching Then agent runs in worktree and cleanup occurs", async () => {
     db.upsertWorkItem({
       id: "wi-wt",

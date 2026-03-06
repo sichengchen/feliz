@@ -10,9 +10,10 @@ const TEST_WORKSPACE_DIR = "/tmp/feliz-server-test-workspace";
 
 function makeConfig(overrides?: Partial<FelizConfig>): FelizConfig {
   return {
-    linear: { api_key: "test-api-key" },
+    linear: { oauth_token: "test-oauth-token" },
+    webhook: { port: 0 },
+    tick: { interval_ms: 5000 },
     storage: { data_dir: TEST_DATA_DIR, workspace_root: TEST_WORKSPACE_DIR },
-    polling: { interval_ms: 5000 },
     agent: { default: "claude-code", max_concurrent: 1 },
     projects: [
       {
@@ -66,7 +67,7 @@ describe("FelizServer", () => {
     server.stop();
   });
 
-  test("promotes due retry_queued items and dispatches them in poll cycle", async () => {
+  test("promotes due retry_queued items and dispatches them in tick cycle", async () => {
     const server = new FelizServer(makeConfig());
     const anyServer = server as any;
     const db = anyServer.db;
@@ -119,14 +120,8 @@ describe("FelizServer", () => {
     mkdirSync(repoPath, { recursive: true });
     writeFileSync(join(repoPath, "WORKFLOW.md"), "Issue {{ issue.title }}", "utf-8");
 
-    anyServer.poller = {
-      poll: async () => [],
-    };
     anyServer.workspace = {
       getRepoPath: () => repoPath,
-    };
-    anyServer.publisher = {
-      publish: async () => ({ prUrl: "https://example.com/pr/1" }),
     };
 
     const successAdapter: AgentAdapter = {
@@ -146,7 +141,7 @@ describe("FelizServer", () => {
       "codex": successAdapter,
     };
 
-    await anyServer.pollCycle();
+    await anyServer.tickCycle();
 
     const wi = db.getWorkItem("wi-1");
     expect(wi.orchestration_state).toBe("completed");
@@ -154,7 +149,7 @@ describe("FelizServer", () => {
     await server.stop();
   });
 
-  test("Given a work item in spec_drafting When pollCycle runs Then it advances to spec_review", async () => {
+  test("Given a work item in spec_drafting When tickCycle runs Then it advances to spec_review", async () => {
     const server = new FelizServer(makeConfig());
     const anyServer = server as any;
     const db = anyServer.db;
@@ -196,11 +191,7 @@ agent:
       "utf-8"
     );
 
-    anyServer.poller = { poll: async () => [] };
     anyServer.workspace = { getRepoPath: () => repoPath };
-    anyServer.publisher = {
-      publish: async () => ({ prUrl: "https://example.com/pr/1" }),
-    };
     const specAdapter: AgentAdapter = {
       name: "claude-code",
       isAvailable: async () => true,
@@ -215,7 +206,7 @@ agent:
     };
     anyServer.adapters = { "claude-code": specAdapter, codex: specAdapter };
 
-    await anyServer.pollCycle();
+    await anyServer.tickCycle();
 
     const wi = db.getWorkItem("wi-spec");
     expect(wi.orchestration_state).toBe("spec_review");
@@ -223,7 +214,7 @@ agent:
     await server.stop();
   });
 
-  test("Given a work item in decomposing When pollCycle runs Then it advances to decompose_review", async () => {
+  test("Given a work item in decomposing When tickCycle runs Then it advances to decompose_review", async () => {
     const server = new FelizServer(makeConfig());
     const anyServer = server as any;
     const db = anyServer.db;
@@ -263,11 +254,7 @@ agent:
       "utf-8"
     );
 
-    anyServer.poller = { poll: async () => [] };
     anyServer.workspace = { getRepoPath: () => repoPath };
-    anyServer.publisher = {
-      publish: async () => ({ prUrl: "https://example.com/pr/1" }),
-    };
     const decompAdapter: AgentAdapter = {
       name: "claude-code",
       isAvailable: async () => true,
@@ -290,7 +277,7 @@ agent:
     };
     anyServer.adapters = { "claude-code": decompAdapter, codex: decompAdapter };
 
-    await anyServer.pollCycle();
+    await anyServer.tickCycle();
 
     const wi = db.getWorkItem("wi-decomp");
     expect(wi.orchestration_state).toBe("decompose_review");

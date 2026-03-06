@@ -13,7 +13,7 @@ describe("E2E smoke script", () => {
     expect(content.startsWith("#!/usr/bin/env bash")).toBe(true);
     expect(content).toContain("src/cli/index.ts e2e doctor");
     expect(content).toContain("src/cli/index.ts e2e smoke");
-    expect(content).toContain("LINEAR_API_KEY");
+    expect(content).toContain("LINEAR_OAUTH_TOKEN");
   });
 
   test("includes an env sample for e2e testing", () => {
@@ -21,7 +21,7 @@ describe("E2E smoke script", () => {
     expect(existsSync(envSamplePath)).toBe(true);
 
     const content = readFileSync(envSamplePath, "utf-8");
-    expect(content).toContain("LINEAR_API_KEY=");
+    expect(content).toContain("LINEAR_OAUTH_TOKEN=");
     expect(content).toContain("GITHUB_TOKEN=");
     expect(content).toContain("E2E_CONFIG_PATH=");
   });

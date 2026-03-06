@@ -1,12 +1,10 @@
 import { Database } from "./db/database.ts";
 import { LinearClient } from "./linear/client.ts";
-import { IssuePoller } from "./linear/poller.ts";
+import { WebhookHandler } from "./linear/webhook.ts";
 import { WorkspaceManager } from "./workspace/manager.ts";
 import { Orchestrator } from "./orchestrator/orchestrator.ts";
-import { Publisher } from "./publishing/publisher.ts";
 import { ClaudeCodeAdapter } from "./agents/claude-code.ts";
 import { CodexAdapter } from "./agents/codex.ts";
-import { ContextAssembler } from "./context/assembler.ts";
 import {
   loadRepoConfig,
   loadPipelineConfig,
@@ -18,17 +16,18 @@ import type { AgentAdapter } from "./agents/adapter.ts";
 import { existsSync, readFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { writePidFile, removePidFile } from "./pid.ts";
+import type { AgentSessionEvent } from "./linear/webhook.ts";
 
 export class FelizServer {
   private config: FelizConfig;
   private db: Database;
   private linearClient: LinearClient;
-  private poller: IssuePoller;
+  private webhookHandler: WebhookHandler;
   private workspace: WorkspaceManager;
-  private publisher: Publisher;
   private adapters: Record<string, AgentAdapter>;
   private logger = createLogger("server");
   private running = false;
+  private httpServer: ReturnType<typeof Bun.serve> | null = null;
 
   constructor(config: FelizConfig) {
     this.config = config;
@@ -39,10 +38,9 @@ export class FelizServer {
     mkdirSync(config.storage.workspace_root, { recursive: true });
 
     this.db = new Database(join(dbDir, "feliz.db"));
-    this.linearClient = new LinearClient(config.linear.api_key);
-    this.poller = new IssuePoller(this.db, this.linearClient);
+    this.linearClient = new LinearClient(config.linear.oauth_token);
+    this.webhookHandler = new WebhookHandler(this.db, this.linearClient);
     this.workspace = new WorkspaceManager(config.storage.workspace_root);
-    this.publisher = new Publisher();
 
     // Register adapters
     this.adapters = {
@@ -63,7 +61,8 @@ export class FelizServer {
 
     this.logger.info("Feliz server started", {
       projects: this.config.projects.length,
-      polling_interval: this.config.polling.interval_ms,
+      tick_interval: this.config.tick.interval_ms,
+      webhook_port: this.config.webhook.port,
     });
 
     // Register projects in DB
@@ -93,40 +92,85 @@ export class FelizServer {
       }
     }
 
-    // Main poll loop
+    // Start webhook HTTP server
+    this.httpServer = Bun.serve({
+      port: this.config.webhook.port,
+      fetch: async (req) => {
+        const url = new URL(req.url);
+        if (req.method === "POST" && url.pathname === "/webhook/linear") {
+          try {
+            const event = (await req.json()) as AgentSessionEvent;
+            if (event.type !== "AgentSession") {
+              return new Response("ignored", { status: 200 });
+            }
+
+            const projectConfig = this.findProjectForIssue(event);
+            if (!projectConfig) {
+              return new Response("no matching project", { status: 200 });
+            }
+
+            const project = this.db.getProjectByName(projectConfig.name);
+            if (!project) {
+              return new Response("project not registered", { status: 200 });
+            }
+
+            const result = await this.webhookHandler.handleEvent(event, project.id);
+
+            // Process the new work item through orchestration
+            const repoConfig = this.loadRepoConfigForProject(projectConfig.name);
+            const pipeline = this.loadPipelineForProject(projectConfig.name, repoConfig);
+            const orchestrator = new Orchestrator(
+              this.db,
+              this.adapters,
+              repoConfig,
+              join(this.config.storage.data_dir, "scratchpad"),
+              this.config.agent.max_concurrent,
+              { workspace: this.workspace }
+            );
+
+            const wi = this.db.getWorkItem(result.workItemId);
+            if (wi && wi.orchestration_state === "unclaimed") {
+              orchestrator.processNewIssue(wi.id);
+            }
+
+            return new Response(JSON.stringify({ ok: true, workItemId: result.workItemId }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          } catch (e: any) {
+            this.logger.error(`Webhook error: ${e.message}`);
+            return new Response("error", { status: 500 });
+          }
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    // Main tick loop
     while (this.running) {
-      await this.pollCycle();
-      await Bun.sleep(this.config.polling.interval_ms);
+      await this.tickCycle();
+      await Bun.sleep(this.config.tick.interval_ms);
     }
   }
 
   async stop(): Promise<void> {
     this.running = false;
+    if (this.httpServer) {
+      this.httpServer.stop();
+      this.httpServer = null;
+    }
     removePidFile(this.config.storage.data_dir);
     this.logger.info("Feliz server stopping");
     this.db.close();
   }
 
-  private async pollCycle(): Promise<void> {
+  private async tickCycle(): Promise<void> {
     for (const projConfig of this.config.projects) {
       const project = this.db.getProjectByName(projConfig.name);
       if (!project) continue;
 
       try {
-        // Poll Linear for issues
-        const events = await this.poller.poll(
-          project.id,
-          projConfig.linear_project
-        );
-
-        for (const event of events) {
-          this.logger.info(`Event: ${event.event_type}`, {
-            project_id: project.id,
-            ...event.payload,
-          });
-        }
-
-        // Process new unclaimed issues
         const repoConfig = this.loadRepoConfigForProject(projConfig.name);
         const pipeline = this.loadPipelineForProject(projConfig.name, repoConfig);
 
@@ -136,21 +180,11 @@ export class FelizServer {
           repoConfig,
           join(this.config.storage.data_dir, "scratchpad"),
           this.config.agent.max_concurrent,
-          {
-            workspace: this.workspace,
-            publisher: this.publisher,
-          }
+          { workspace: this.workspace }
         );
-
-        // Transition unclaimed to queued/spec_drafting
-        const unclaimed = this.db.listWorkItemsByState(project.id, "unclaimed");
-        for (const wi of unclaimed) {
-          orchestrator.processNewIssue(wi.id);
-        }
 
         const workDir = this.workspace.getRepoPath(projConfig.name);
         if (existsSync(workDir)) {
-          // Advance long-running orchestration states.
           await orchestrator.processDecomposing(project.id, workDir);
           await orchestrator.processSpecDrafting(project.id, workDir);
         }
@@ -163,11 +197,22 @@ export class FelizServer {
           await orchestrator.dispatchQueued(project.id, pipeline, workDir);
         }
       } catch (e: any) {
-        this.logger.error(`Poll cycle error for ${projConfig.name}: ${e.message}`, {
+        this.logger.error(`Tick cycle error for ${projConfig.name}: ${e.message}`, {
           project_id: project.id,
         });
       }
     }
+  }
+
+  private findProjectForIssue(event: AgentSessionEvent) {
+    const issueProject = event.agentSession.issue.project?.name;
+    if (issueProject) {
+      const match = this.config.projects.find(
+        (p) => p.linear_project === issueProject
+      );
+      if (match) return match;
+    }
+    return this.config.projects[0] ?? null;
   }
 
   private loadRepoConfigForProject(projectName: string): ReturnType<typeof loadRepoConfig> {

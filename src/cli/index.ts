@@ -373,7 +373,7 @@ async function main() {
       const { CodexAdapter } = await import("../agents/codex.ts");
       const { runProjectAddWizard } = await import("./project-add-wizard.ts");
 
-      const linearClient = new LinearClient(config.linear.api_key);
+      const linearClient = new LinearClient(config.linear.oauth_token);
       const workspace = new WorkspaceManager(config.storage.workspace_root);
       const adapters = {
         "claude-code": new ClaudeCodeAdapter(),

@@ -27,7 +27,7 @@ describe("CLI config validation", () => {
 
     writeFileSync(
       configPath,
-      `linear:\n  api_key: test\nprojects:\n  - name: backend\n    repo: git@github.com:org/backend.git\n    linear_project: Backend\nstorage:\n  data_dir: ${join(TEST_ROOT, "data")}\n  workspace_root: ${workspaceRoot}\n`,
+      `linear:\n  oauth_token: test\nprojects:\n  - name: backend\n    repo: git@github.com:org/backend.git\n    linear_project: Backend\nstorage:\n  data_dir: ${join(TEST_ROOT, "data")}\n  workspace_root: ${workspaceRoot}\n`,
       "utf-8"
     );
 
@@ -53,7 +53,7 @@ describe("CLI config validation", () => {
 
     writeFileSync(
       configPath,
-      `linear:\n  api_key: test\nprojects:\n  - name: backend\n    repo: git@github.com:org/backend.git\n    linear_project: Backend\nstorage:\n  data_dir: ${join(TEST_ROOT, "data")}\n  workspace_root: ${workspaceRoot}\n`,
+      `linear:\n  oauth_token: test\nprojects:\n  - name: backend\n    repo: git@github.com:org/backend.git\n    linear_project: Backend\nstorage:\n  data_dir: ${join(TEST_ROOT, "data")}\n  workspace_root: ${workspaceRoot}\n`,
       "utf-8"
     );
 

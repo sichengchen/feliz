@@ -419,39 +419,6 @@ describe("PipelineExecutor", () => {
     expect(result.failureReason).toContain("review_cycle");
   });
 
-  test("builtin publish step is recognized", async () => {
-    const adapter = makeAdapter();
-    let publishCalled = false;
-    const pipeline: PipelineDefinition = {
-      phases: [
-        {
-          name: "publish",
-          steps: [
-            {
-              name: "create_pr",
-              builtin: "publish",
-            },
-          ],
-        },
-      ],
-    };
-
-    const executor = new PipelineExecutor(db, { "test-agent": adapter });
-    const result = await executor.execute({
-      runId: "run-1",
-      workDir: TEST_WORK_DIR,
-      pipeline,
-      promptRenderer: () => "prompt",
-      onBuiltin: async (name) => {
-        publishCalled = true;
-        return true;
-      },
-    });
-
-    expect(result.success).toBe(true);
-    expect(publishCalled).toBe(true);
-  });
-
   test("records step executions in DB", async () => {
     const adapter = makeAdapter();
     const pipeline: PipelineDefinition = {

@@ -1,11 +1,34 @@
 # Linear Integration
 
-Feliz interacts with Linear through two distinct layers:
+Feliz connects to Linear as an **Agent** using Linear's native [Agent API](https://linear.app/developers/agent-interaction) (Developer Preview). This gives Feliz its own bot identity in the workspace — users can `@Feliz` with autocomplete, delegate issues to it, and see its status updates as structured agent activities.
 
-1. **Issue CRUD** — Linear GraphQL API for polling issues, updating states, creating sub-issues, and managing labels/relations.
-2. **Messaging** — [Vercel Chat SDK](https://github.com/vercel/chat) (`@chat-adapter/linear`) for comment-based conversation: mentions, commands, replies, and thread subscriptions.
+## Authentication
 
-This separation keeps the messaging layer pluggable. Chat SDK supports multiple adapters (Linear, GitHub, Slack, Discord, etc.), enabling future support for GitHub Issues/PRs as an alternative project management interface.
+Feliz uses Linear's OAuth2 flow with `actor=app` to install as an app-level actor (not a personal user). Installation requires workspace admin permissions.
+
+**Required scopes**:
+
+| Scope | Purpose |
+|---|---|
+| `app:mentionable` | Allow users to @-mention Feliz in issues, documents, and editor surfaces |
+| `app:assignable` | Allow users to delegate issues to Feliz (sets Feliz as `delegate`, not `assignee`) |
+| `read` | Read issues, comments, projects, labels, relations |
+| `write` | Update issue state, create comments, manage labels |
+| `issues:create` | Create sub-issues from decomposition |
+
+**Installation**:
+
+1. Register Feliz as an [Application](https://linear.app/settings/api/applications/new) in Linear.
+2. Configure name ("Feliz") and icon — this is how the agent appears in workspace menus.
+3. Enable webhooks and select **Agent session events** (plus Inbox notifications and Permission changes).
+4. Complete the OAuth flow with `actor=app` to install into a workspace.
+5. Store the workspace-specific app user ID (from `viewer.id` query) alongside the access token.
+
+The bot identity means:
+- Users see "Feliz" in mention autocomplete when typing `@`
+- Users can delegate (assign) issues directly to Feliz
+- Activities from Feliz show the app name/avatar, not a personal account
+- Feliz does not count as a billable user
 
 ## Architecture
 
@@ -14,13 +37,13 @@ This separation keeps the messaging layer pluggable. Chat SDK supports multiple 
 │                   Feliz Server                    │
 │                                                   │
 │  ┌──────────────────┐  ┌──────────────────────┐  │
-│  │  Issue Poller     │  │  Chat SDK            │  │
-│  │  (GraphQL client) │  │  (Linear adapter)    │  │
-│  │                   │  │                      │  │
-│  │  - Poll issues    │  │  - onNewMention()    │  │
-│  │  - Update state   │  │  - onSubscribed()    │  │
-│  │  - Create issues  │  │  - thread.post()     │  │
-│  │  - Manage labels  │  │  - thread.subscribe()│  │
+│  │  Linear Client    │  │  Webhook Handler     │  │
+│  │  (GraphQL/OAuth)  │  │                      │  │
+│  │                   │  │  - AgentSession      │  │
+│  │  - Update state   │  │    created/updated   │  │
+│  │  - Create issues  │  │  - Permission        │  │
+│  │  - Manage labels  │  │    changes           │  │
+│  │  - Agent Activity │  │                      │  │
 │  └────────┬──────────┘  └──────────┬───────────┘  │
 │           │                        │              │
 │           └────────────┬───────────┘              │
@@ -29,185 +52,154 @@ This separation keeps the messaging layer pluggable. Chat SDK supports multiple 
 └──────────────────────────────────────────────────┘
 ```
 
-## Issue polling (GraphQL)
+## Issue Discovery
 
-Feliz polls Linear on a configurable interval (default 30s) using the GraphQL API.
+Feliz does **not** poll for issues. Work enters Feliz through two mechanisms, both delivered via webhooks:
 
-**Poll cycle**:
+1. **Assignment (primary)** — a user assigns an issue to Feliz. This is the simplest workflow — no comment needed. Just assign and Feliz starts working.
+2. **Mention** — a user @-mentions `@Feliz` in an issue comment. Useful for commands (`@Feliz decompose`), providing guidance, or assigning with context.
 
-1. For each configured project, fetch issues from the associated Linear project.
-2. Compare with known WorkItems in local DB.
-3. For new issues: create WorkItem record, emit `issue.discovered` history event.
-4. For changed issues: update WorkItem fields, emit `issue.updated` history event.
-5. For issues moved to terminal states: mark WorkItem accordingly, trigger cleanup.
+Both trigger an `AgentSessionEvent` webhook with a `created` action, containing the `agentSession` object with the relevant issue, comment, and context.
 
-**GraphQL query** (per project):
+**How an issue enters Feliz**:
 
-```graphql
-query FelizPollIssues($projectName: String!, $after: String) {
-  issues(
-    filter: {
-      project: { name: { eq: $projectName } }
-    }
-    after: $after
-    first: 50
-    orderBy: createdAt
-  ) {
-    nodes {
-      id
-      identifier
-      title
-      description
-      priority
-      state { name }
-      labels { nodes { name } }
-      relations {
-        nodes {
-          type
-          relatedIssue { id identifier state { name } }
-        }
-      }
-      branchName
-      url
-    }
-    pageInfo { hasNextPage endCursor }
+1. A user creates or opens a Linear issue.
+2. The user assigns the issue to Feliz (simplest), or @-mentions `@Feliz` in a comment.
+3. Linear creates an Agent Session and fires a webhook to Feliz.
+4. Feliz creates a WorkItem record, emits a `thought` activity within 10 seconds to acknowledge, and begins processing.
+
+Issues that are never assigned/mentioned to Feliz are invisible to it. The user controls exactly which issues Feliz works on.
+
+**Delegate vs Assignee**: Assigning an issue to Feliz sets it as the `delegate`, not the `assignee` — the human maintains ownership while Feliz acts on their behalf. This is Linear's native model for agent collaboration.
+
+**Milestone support**: Users can optionally organize issues under Linear milestones. Feliz respects milestone grouping when decomposing large features — sub-issues are created under the same milestone as the parent.
+
+## Agent Sessions
+
+The [Agent Session](https://linear.app/developers/agent-interaction#agent-session) is the core interaction model. Linear automatically manages session lifecycle:
+
+- A session is **created** when Feliz is mentioned or delegated an issue.
+- Session state is **visible to users** and updated automatically based on Feliz's emitted activities.
+- The session provides `promptContext` — a pre-formatted string containing issue details, comments, and guidance.
+
+### Receiving webhooks
+
+Feliz subscribes to **Agent session events**. The primary entry point:
+
+```typescript
+// Webhook handler for AgentSessionEvent
+async function handleAgentSessionEvent(event: AgentSessionEvent) {
+  const { action, agentSession } = event;
+
+  if (action === 'created') {
+    // New session — Feliz was mentioned or delegated an issue
+    // Must emit a thought within 10 seconds to acknowledge
+    await emitThought(agentSession.id, 'Looking into this...');
+
+    const workItem = await findOrCreateWorkItem(agentSession);
+    const context = agentSession.promptContext; // pre-formatted issue context
+    await processWorkItem(workItem, agentSession, context);
+  }
+
+  if (action === 'updated') {
+    // Session updated — e.g., user replied with more context
+    const workItem = await findWorkItem(agentSession);
+    await handleSessionUpdate(workItem, agentSession);
   }
 }
 ```
 
-Issues are filtered by Linear project name, not by team. A single Linear project (which can span multiple teams) maps 1:1 to a single repo.
+### Agent Activities
 
-**Rate limiting**: Respect Linear's `X-RateLimit-Requests-Remaining` header. If remaining < 100, double the polling interval temporarily. If rate-limited (429), back off using `Retry-After` header.
+Feliz communicates status back to Linear through **Agent Activities** rather than plain comments. Activities provide structured status visible in the session UI:
 
-## Messaging (Chat SDK)
-
-Comment-based interaction is handled by the Vercel Chat SDK with the Linear adapter. This replaces custom comment polling and posting with a unified event-driven model.
-
-### Setup
+| Activity type | When Feliz emits it |
+|---|---|
+| `thought` | Acknowledging a mention/delegation (within 10s). Intermediate status updates. |
+| `comment` | Posting detailed results, spec drafts, decomposition proposals, questions for the user. |
 
 ```typescript
-import { Chat } from 'chat';
-import { LinearAdapter } from '@chat-adapter/linear';
-
-const chat = new Chat({
-  adapters: [
-    new LinearAdapter({
-      apiKey: process.env.LINEAR_API_KEY,
-    }),
-  ],
+// Acknowledge receipt
+await linearClient.agentActivity.create({
+  sessionId: session.id,
+  type: 'thought',
+  content: 'Looking into this...',
 });
-```
 
-### Event handlers
-
-**New mention** — triggered when someone mentions `@feliz` on a Linear issue:
-
-```typescript
-chat.onNewMention(async ({ thread, message }) => {
-  const command = parseCommand(message.text); // "start", "plan", "approve", etc.
-
-  if (command) {
-    await handleCommand(command, thread, message);
-  } else {
-    // Free-text mentioning @feliz — treat as clarification/feedback
-    await appendToContext(thread, message);
-  }
-});
-```
-
-**Subscribed messages** — triggered on follow-up messages in threads Feliz is watching:
-
-```typescript
-chat.onSubscribedMessage(async ({ thread, message }) => {
-  // User replied in a thread Feliz is participating in
-  await handleFollowUp(thread, message);
+// Post detailed result
+await linearClient.agentActivity.create({
+  sessionId: session.id,
+  type: 'comment',
+  content: 'PR created: [link]. Summary of changes...',
 });
 ```
 
 ### Commands
 
+Commands are parsed from the mention text or follow-up comments in the session:
+
 | Command | Effect |
 |---|---|
-| `@feliz start` | Dispatch agent immediately |
-| `@feliz plan` | Enter spec drafting phase (only when `specs.enabled`; ignored otherwise) |
-| `@feliz retry` | Re-queue with incremented attempt |
-| `@feliz status` | Reply with current orchestration state, last run info |
-| `@feliz approve` | Approve spec/decomposition, transition to next state |
-| `@feliz cancel` | Cancel running agent, release work item |
-| `@feliz decompose` | Break down a large feature into sub-issues |
-| (free text) | Treated as clarification/feedback; appended to context |
+| (assign to Feliz) | Assign issue to Feliz. Creates WorkItem, starts processing. No comment needed. |
+| `@Feliz decompose` | Break down a large feature into sub-issues |
+| `@Feliz start` | Dispatch agent immediately (skip spec phase if enabled) |
+| `@Feliz plan` | Enter spec drafting phase (only when `specs.enabled`; ignored otherwise) |
+| `@Feliz retry` | Re-queue with incremented attempt |
+| `@Feliz status` | Reply with current orchestration state, last run info |
+| `@Feliz approve` | Approve spec/decomposition, transition to next state |
+| `@Feliz cancel` | Cancel running agent, release work item |
+| (free text after initial mention) | Treated as clarification/feedback; appended to context |
 
-### Posting replies
+### Acknowledgment protocol
 
-Feliz replies to commands and posts status updates using the Chat SDK's thread API:
+On **every** Feliz-related event (new session, session update), Feliz:
 
-```typescript
-// Reply in the same thread
-await thread.post('Started working on this (attempt 1).');
+1. Emits a `thought` activity within 10 seconds to acknowledge receipt
+2. Begins processing
+3. Emits further activities as status changes (started, completed, failed, needs input)
 
-// Subscribe to the thread for follow-up messages
-await thread.subscribe();
-
-// Post with reactions
-await thread.react('eyes'); // acknowledge
-```
-
-## Triggers
-
-Three trigger types:
-
-| Trigger | Source | Action |
-|---|---|---|
-| **State change** | Poller (GraphQL) | Issue state differs from stored WorkItem → evaluate orchestration transition |
-| **Label added** | Poller (GraphQL) | Issue gains a watched label (e.g., `feliz`, `feliz:priority`) → priority boost |
-| **Mention/comment** | Chat SDK (`onNewMention`) | `@feliz` mentioned → parse command and execute |
-
-State and label changes are detected during the poll cycle (GraphQL). Comment commands are handled by the Chat SDK's event-driven model — no comment polling needed.
+This gives the user immediate visual feedback that Feliz received their message. Session state is automatically updated by Linear based on emitted activities.
 
 ## Writing back to Linear
 
-### Status comments (via Chat SDK)
+### Status activities
 
-| Event | Message posted |
+| Event | Activity |
 |---|---|
-| Spec drafted | Spec summary + "Reply `@feliz approve` to proceed" |
-| Decomposition proposed | Breakdown summary + "Reply `@feliz approve` to create issues" |
-| Agent run started | "Started working on this (attempt N)" |
-| Agent run succeeded | PR link + summary of changes |
-| Agent run failed | Failure summary + "Reply `@feliz retry` to retry" |
-| Gates failed | Test/lint output |
+| Issue assigned/delegated to Feliz | `thought`: "Looking into this..." |
+| Spec drafted | `comment`: Spec summary + "Reply `@Feliz approve` to proceed" |
+| Decomposition proposed | `comment`: Breakdown summary + "Reply `@Feliz approve` to create issues" |
+| Agent run started | `thought`: "Started working on this (attempt N)" |
+| Agent run succeeded | `comment`: PR link + summary of changes |
+| Agent run failed | `comment`: Failure summary + "Reply `@Feliz retry` to retry" |
+| Agent needs help | `comment`: Description of problem + question for user |
 
 ### State transitions (via GraphQL)
 
 | Feliz event | Default Linear state change |
 |---|---|
-| Run started | → "In Progress" |
+| Issue assigned to Feliz | → "In Progress" |
 | Run succeeded + PR created | → "In Review" |
-| Run failed | → (no change, comment only) |
+| Run failed | → (no change, activity only) |
 
 State transitions are configurable per-workflow in `.feliz/config.yml`.
 
-## GraphQL Mutation Safety
+## GraphQL Mutations
 
-All Linear GraphQL mutations must pass dynamic user/operator values via GraphQL `variables` rather than string interpolation in the query body.
+The Linear GraphQL API is used for mutations:
 
-This applies to operations including:
+- `issueUpdate` — update issue state, add labels
+- `issueCreate` — create sub-issues from decomposition
+- `agentActivity.create` — emit thoughts and comments in agent sessions
 
-- `issueUpdate` (issue ID, target state ID)
-- `commentCreate` (issue ID, comment body)
+All mutations pass dynamic values via GraphQL `variables` rather than string interpolation.
 
 ### Scenario: Comment Body With Special Characters
 
 - **Given** a comment body containing quotes and newlines
-- **When** Feliz sends `commentCreate`
+- **When** Feliz emits an agent activity
 - **Then** the raw body is passed through GraphQL variables without manual escaping logic in the query string
 
 ## Future: GitHub Issues as alternative
 
-The Chat SDK also provides `@chat-adapter/github`, which supports mentions and comments on GitHub Issues and PRs. This means Feliz could support GitHub Issues as a project management interface with:
-
-- The same command model (`@feliz start`, `@feliz approve`, etc.) in GitHub issue comments
-- A GitHub-specific issue poller (using the GitHub API instead of Linear GraphQL)
-- PR management directly in the same platform
-
-This is deferred to a future phase. The adapter-based architecture ensures the messaging layer is ready when needed.
+Linear's Agent API is the primary interface. A future phase could add GitHub Issues support using a similar webhook-based model with GitHub's bot/app APIs, reusing the same orchestration layer with a different event adapter.

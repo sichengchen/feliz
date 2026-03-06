@@ -7,9 +7,11 @@
 - SQLite schema + migrations
 - CLI skeleton (`feliz start`, `feliz config validate`)
 
-## Phase 2: Linear Polling + Work Items
-- Linear GraphQL client with rate limiting
-- Poll loop with issue discovery and change detection
+## Phase 2: Linear Integration (Agent API + GraphQL)
+- Linear OAuth app registration (`actor=app`, `app:mentionable`, `app:assignable`)
+- Webhook handler for Agent Session events (created, updated)
+- Agent Activity emitter (thoughts, comments)
+- Linear GraphQL client for mutations (state updates, issue creation)
 - WorkItem CRUD in SQLite
 - History event logging (append-only)
 
@@ -20,16 +22,18 @@
 - Claude Code adapter implementation
 - Basic orchestration state machine (unclaimed -> queued -> running -> completed/failed)
 - Default single-step pipeline (no `.feliz/pipeline.yml` required)
+- All steps as agent calls (no builtin actions)
 
-## Phase 4: Results + Linear Writeback
-- PR creation (GitHub API)
+## Phase 4: Agent-Handled Publishing + Linear Writeback
+- Publishing prompt template (`.feliz/prompts/publish.md`)
+- Agent commits, pushes, creates PR as a pipeline step
 - Linear comment posting and state updates
-- Verification gates (test/lint commands)
-- Comment command parsing (`@feliz start/status/retry/cancel`)
+- Agent Activity acknowledgment on all events
+- Command parsing (`@Feliz start/status/retry/cancel`)
 
 ## Phase 5: Multi-Step Pipeline Engine
 - Pipeline phase/step executor
-- Step success conditions (command, agent_verdict, file_exists, always)
+- Post-step validation conditions (command, agent_verdict, file_exists, always)
 - Phase repeat/loop with cycle tracking
 - Step-level retry with failure context
 - Per-step agent adapter selection
@@ -51,6 +55,7 @@
 ## Phase 8: Feature Decomposition
 - Large feature detection heuristics
 - Spec-to-issue decomposition engine
+- Milestone support (sub-issues inherit parent milestone)
 - Auto-dependency creation in Linear
 - Parent issue lifecycle (tracks children)
 - Decomposition review flow

@@ -30,25 +30,8 @@ interface WorkspaceRuntime {
   ) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 }
 
-interface PublisherRuntime {
-  publish: (
-    params: {
-      workDir: string;
-      branchName: string;
-      identifier: string;
-      title: string;
-      linearUrl: string;
-      summary: string;
-      filesChanged: string[];
-      testResults: string | null;
-    },
-    baseBranch: string
-  ) => Promise<{ prUrl: string }>;
-}
-
 interface OrchestratorOptions {
   workspace?: WorkspaceRuntime;
-  publisher?: PublisherRuntime;
 }
 
 export class Orchestrator {
@@ -350,7 +333,6 @@ export class Orchestrator {
       }
     );
     const promptTemplateCache = new Map<string, string>();
-    let prUrl: string | null = null;
     const result = await executor.execute({
       runId,
       workDir: executionDir,
@@ -380,34 +362,17 @@ export class Orchestrator {
           attempt: attempt > 1 ? attempt : null,
         });
       },
-      onBuiltin: async (name) => {
-        if (name === "publish") {
-          const publishedPrUrl = await this.publishRun({
-            wi,
-            projectName: project?.name,
-            baseBranch: project?.base_branch,
-            branchName,
-            workDir: executionDir,
-          });
-          if (!publishedPrUrl) {
-            return false;
-          }
-          prUrl = publishedPrUrl;
-          return true;
-        }
-        return false;
-      },
     });
 
     if (result.success) {
-      this.db.updateRunResult(runId, "succeeded", null, prUrl);
+      this.db.updateRunResult(runId, "succeeded", null, null);
       this.db.appendHistory({
         id: newId(),
         project_id: wi.project_id,
         work_item_id: wi.id,
         run_id: runId,
         event_type: "run.completed",
-        payload: { result: "succeeded", pr_url: prUrl },
+        payload: { result: "succeeded" },
       });
       const updatedWi = this.db.getWorkItem(wi.id)!;
       this.transition(updatedWi, "completed");
@@ -543,45 +508,6 @@ export class Orchestrator {
       return null;
     }
     return readFileSync(fullPath, "utf-8");
-  }
-
-  private async publishRun(params: {
-    wi: WorkItem;
-    projectName?: string;
-    baseBranch?: string;
-    branchName: string;
-    workDir: string;
-  }): Promise<string | null> {
-    if (!this.options.publisher) {
-      return null;
-    }
-    if (!params.baseBranch) {
-      return null;
-    }
-
-    const diffResult = Bun.spawnSync(["git", "diff", "--name-only", "HEAD"], {
-      cwd: params.workDir,
-    });
-    const filesChanged = diffResult.stdout
-      .toString()
-      .trim()
-      .split("\n")
-      .filter(Boolean);
-
-    const published = await this.options.publisher.publish(
-      {
-        workDir: params.workDir,
-        branchName: params.branchName,
-        identifier: params.wi.linear_identifier,
-        title: params.wi.title,
-        linearUrl: params.wi.linear_identifier,
-        summary: `Automated implementation for ${params.wi.linear_identifier}`,
-        filesChanged,
-        testResults: null,
-      },
-      params.baseBranch
-    );
-    return published.prUrl;
   }
 
   private transition(wi: WorkItem, to: OrchestrationState): void {

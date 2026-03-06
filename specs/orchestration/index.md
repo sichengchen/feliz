@@ -99,23 +99,33 @@ When `specs.enabled: false` (no spec concept at all):
                        └──────────────┘
 ```
 
+## Entry Point: Mention-Based Discovery
+
+Work items enter the system when a user assigns an issue to Feliz or @-mentions `@Feliz` in a comment. Both trigger an Agent Session webhook. Feliz does **not** poll for issues. See [Linear Integration](../linear/index.md) for details.
+
+When a new Agent Session is created:
+
+1. Feliz emits a `thought` activity within 10 seconds to acknowledge.
+2. Feliz creates a WorkItem in `unclaimed` state.
+3. Feliz evaluates the session context (command, issue description, `promptContext`) to determine the first transition.
+
 ## Transitions
 
 | From | To | Trigger |
 |---|---|---|
-| `unclaimed` | `decomposing` | Issue detected as large feature (epic label, or Feliz judges complexity). Decomposition includes spec drafting (system design + behavioral cases) only if `specs.enabled`. |
+| `unclaimed` | `decomposing` | User says `@Feliz decompose`, or Feliz judges issue as large feature (epic label, complexity). Decomposition includes spec drafting only if `specs.enabled`. |
 | `unclaimed` | `spec_drafting` | `specs.enabled` AND not a large feature |
 | `unclaimed` | `queued` | `!specs.enabled` AND not a large feature |
 | `decomposing` | `decompose_review` | Feliz drafts breakdown, posts to Linear for approval |
-| `decompose_review` | (creates sub-WorkItems) | Human approves decomposition (`@feliz approve`). Parent stays in `decompose_review` until children complete. |
+| `decompose_review` | (creates sub-WorkItems) | Human approves decomposition (`@Feliz approve`). Parent stays in `decompose_review` until children complete. |
 | `spec_drafting` | `spec_review` | `specs.enabled` AND spec draft completed, posted to Linear |
-| `spec_review` | `queued` | Human approves (`@feliz approve`) or `!specs.approval_required` |
+| `spec_review` | `queued` | Human approves (`@Feliz approve`) or `!specs.approval_required` |
 | `queued` | `running` | Concurrency slot available, pipeline dispatched |
-| `running` | `completed` | All pipeline phases/steps succeed, PR created |
+| `running` | `completed` | All pipeline phases/steps succeed (including agent-handled publishing) |
 | `running` | `retry_queued` | Pipeline fails, retries remaining |
 | `running` | `failed` | Pipeline fails, no retries remaining |
 | `retry_queued` | `queued` | Backoff timer expires |
-| any | `cancelled` | User cancels via `@feliz cancel` or issue moves to terminal state |
+| any | `cancelled` | User cancels via `@Feliz cancel` |
 
 **Note**: The states `spec_drafting` and `spec_review` only exist when `specs.enabled: true`. When specs are disabled, these states are never entered and the orchestration state type excludes them.
 
@@ -142,32 +152,56 @@ Dispatch eligibility requires:
 - Work item is in `queued` state
 - Global concurrent count < max
 - Per-state concurrent count < max (if configured)
-- All blocker issues are in terminal states (if issue is in "Todo" state)
+- All blocker issues are in terminal states (if configured with dependencies)
 
 Priority ordering for dispatch queue: `priority ASC` (1=urgent first), then `created_at ASC`.
 
-## Poll-Cycle Progression
+## Orchestrator Responsibilities
 
-In each poll cycle, for each project, Feliz executes orchestration progression in this order:
+The orchestrator is intentionally thin. It manages:
 
-1. Transition `unclaimed` items to their first orchestration state.
-2. Process `decomposing` items via the Decomposition Engine (`decomposing -> decompose_review` on success).
-3. Process `spec_drafting` items via the Spec Engine (`spec_drafting -> spec_review` on success, or auto-approve to `queued` when `specs.approval_required: false`).
-4. Promote retry-ready `retry_queued` items back to `queued`.
-5. Dispatch eligible `queued` items to `running`.
+1. **State machine** — tracking WorkItem orchestration state and transitions
+2. **Concurrency** — enforcing global and per-state limits
+3. **Dispatch** — selecting eligible work items and invoking agent adapters
+4. **Retry** — managing backoff timers and attempt counts
+5. **Context assembly** — gathering history, memory, scratchpad for each step
+6. **Status updates** — posting results back to Linear (👀 reactions, comments, state changes)
+
+The orchestrator does **not** handle:
+- Git operations (cloning, pushing, branching) — handled by workspace manager or agent
+- PR creation — handled by agent via publishing prompt
+- Test/lint execution — handled by agent or as post-step validation
+- Error recovery — agent handles errors within each step
+
+## Tick-Based Progression
+
+Feliz runs a periodic tick (configurable interval, default 5s) that:
+
+1. Processes `decomposing` items via the Decomposition Engine.
+2. Processes `spec_drafting` items via the Spec Engine.
+3. Promotes retry-ready `retry_queued` items back to `queued`.
+4. Dispatches eligible `queued` items to `running`.
+
+New work items enter through the Agent Session webhook handler (not the tick).
 
 ## Behavioral Scenarios
+
+### Scenario: New Mention Creates Work Item
+
+- **Given** a user assigns an issue to Feliz or @-mentions `@Feliz`
+- **When** Linear fires an Agent Session `created` webhook
+- **Then** Feliz emits a `thought` activity, creates a WorkItem in `unclaimed`, and evaluates the first transition
 
 ### Scenario: Spec Drafting Progression
 
 - **Given** a work item in `spec_drafting` and `specs.enabled: true`
-- **When** a poll cycle runs
+- **When** a tick runs
 - **Then** Feliz invokes the Spec Engine and advances the item to `spec_review` on successful draft generation
 
 ### Scenario: Decomposition Progression
 
 - **Given** a work item in `decomposing`
-- **When** a poll cycle runs
+- **When** a tick runs
 - **Then** Feliz invokes the Decomposition Engine and advances the item to `decompose_review` on successful proposal generation
 
 ### Scenario: Per-State Concurrency Enforcement
@@ -188,6 +222,6 @@ Configurable via `agent.approval_policy` in `.feliz/config.yml`:
 
 | Policy | Behavior |
 |---|---|
-| `auto` | Agent executes freely. Gates (tests, lint) checked after completion. |
-| `gated` | Feliz posts the agent's plan to Linear before execution. Requires `@feliz approve` to proceed. |
+| `auto` | Agent executes freely. Post-step validation checked after completion. |
+| `gated` | Feliz posts the agent's plan to Linear before execution. Requires `@Feliz approve` to proceed. |
 | `suggest` | Agent produces a diff but doesn't commit. Feliz posts the diff for review. Requires approval to apply. |

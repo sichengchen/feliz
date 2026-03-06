@@ -22,8 +22,8 @@ export function resolveEnvVars(value: string): string {
 export function loadFelizConfig(yamlContent: string): FelizConfig {
   const raw = parse(yamlContent) as Record<string, unknown>;
 
-  if (!raw?.linear || !(raw.linear as Record<string, unknown>)?.api_key) {
-    throw new Error("linear.api_key is required");
+  if (!raw?.linear || !(raw.linear as Record<string, unknown>)?.oauth_token) {
+    throw new Error("linear.oauth_token is required");
   }
 
   const rawProjects = raw.projects as Record<string, unknown>[] | undefined;
@@ -48,17 +48,21 @@ export function loadFelizConfig(yamlContent: string): FelizConfig {
   });
 
   const linear = raw.linear as Record<string, unknown>;
-  const polling = (raw.polling as Record<string, unknown>) || {};
+  const webhook = (raw.webhook as Record<string, unknown>) || {};
+  const tick = (raw.tick as Record<string, unknown>) || {};
   const storage = (raw.storage as Record<string, unknown>) || {};
   const agent = (raw.agent as Record<string, unknown>) || {};
   const defaultDataDir = join(homedir(), ".feliz");
 
   return {
     linear: {
-      api_key: resolveEnvVars(linear.api_key as string),
+      oauth_token: resolveEnvVars(linear.oauth_token as string),
     },
-    polling: {
-      interval_ms: (polling.interval_ms as number) || 30000,
+    webhook: {
+      port: (webhook.port as number) || 3000,
+    },
+    tick: {
+      interval_ms: (tick.interval_ms as number) || 5000,
     },
     storage: {
       data_dir: (storage.data_dir as string) || defaultDataDir,
@@ -77,8 +81,8 @@ export function loadFelizConfig(yamlContent: string): FelizConfig {
 export function loadFelizProjectAddConfig(yamlContent: string): ProjectAddConfig {
   const raw = parse(yamlContent) as Record<string, unknown>;
 
-  if (!raw?.linear || !(raw.linear as Record<string, unknown>)?.api_key) {
-    throw new Error("linear.api_key is required");
+  if (!raw?.linear || !(raw.linear as Record<string, unknown>)?.oauth_token) {
+    throw new Error("linear.oauth_token is required");
   }
 
   const linear = raw.linear as Record<string, unknown>;
@@ -88,7 +92,7 @@ export function loadFelizProjectAddConfig(yamlContent: string): ProjectAddConfig
 
   return {
     linear: {
-      api_key: resolveEnvVars(linear.api_key as string),
+      oauth_token: resolveEnvVars(linear.oauth_token as string),
     },
     agent: {
       default: (agent.default as string) || "claude-code",
@@ -158,7 +162,7 @@ export function getDefaultPipeline(testCommand?: string): PipelineDefinition {
           },
           {
             name: "create_pr",
-            builtin: "publish",
+            prompt: ".feliz/prompts/publish.md",
           },
         ],
       },

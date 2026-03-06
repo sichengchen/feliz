@@ -7,9 +7,10 @@
 │                     Feliz Server                        │
 │                                                         │
 │  ┌───────────┐  ┌───────────┐  ┌──────────────────────┐ │
-│  │  Issue    │  │  Chat SDK │  │   Context Store      │ │
-│  │  Poller   │  │  (Vercel) │  │  (History/Memory/    │ │
-│  │ (GraphQL) │  │  Linear+  │  │   Scratchpad)        │ │
+│  │  Linear   │  │  Webhook  │  │   Context Store      │ │
+│  │  Client   │  │  Handler  │  │  (History/Memory/    │ │
+│  │ (GraphQL) │  │ (Agent    │  │   Scratchpad)        │ │
+│  │           │  │  Sessions)│  │                      │ │
 │  └─────┬─────┘  └─────┬─────┘  └──────────┬───────────┘ │
 │        │               │                   │             │
 │  ┌─────▼───────────────▼──────────────────▼───────────┐ │
@@ -32,8 +33,8 @@
 │  └────────────────────────────────────────────────────┘ │
 │                                                         │
 │  ┌────────────────────────────────────────────────────┐ │
-│  │           Result Publisher                          │ │
-│  │  (PR creation, Linear comments, state updates)     │ │
+│  │           Linear Writeback                          │ │
+│  │  (Status comments, state updates, 👀 reactions)    │ │
 │  └────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────┘
 ```

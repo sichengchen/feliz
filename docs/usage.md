@@ -8,19 +8,19 @@ Day-to-day operation of Feliz after setup is complete.
 bun run src/cli/index.ts start
 ```
 
-Keep this terminal running. Feliz polls Linear on the configured interval (default: 30s).
+Keep this terminal running. Feliz listens for Linear webhook events on the configured port.
 
 ## Create work in Linear
 
-Create an issue in your mapped Linear project with clear acceptance criteria. Feliz polls **all issues** in the project regardless of Linear state (Backlog, Todo, In Progress, etc.) — any new issue is picked up on the next poll cycle.
+Create an issue in your mapped Linear project with clear acceptance criteria. **Assign the issue to Feliz** (or use `@Feliz` mentions for commands) — Feliz discovers work via webhook when issues are assigned or delegated to it.
 
 What happens after discovery:
 
 1. Issue is claimed and queued (or routed to spec drafting / decomposition if configured).
 2. An isolated git worktree is created.
-3. The pipeline runs (agent execution, gates, PR creation).
+3. The pipeline runs (agent execution, gates, agent-handled PR creation).
 
-No labels, commands, or special formatting needed — just write the issue.
+No labels or special formatting needed — just assign the issue to Feliz.
 
 If nothing happens after creating an issue, check:
 

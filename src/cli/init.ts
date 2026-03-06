@@ -16,21 +16,21 @@ export async function runInit(
   console.log("Feliz Setup");
   console.log("");
 
-  let apiKey: string;
-  const envKey = process.env.LINEAR_API_KEY;
-  if (envKey) {
-    const useEnv = promptFn("LINEAR_API_KEY is set. Use it? [Y/n]") ?? "Y";
+  let oauthToken: string;
+  const envToken = process.env.LINEAR_OAUTH_TOKEN;
+  if (envToken) {
+    const useEnv = promptFn("LINEAR_OAUTH_TOKEN is set. Use it? [Y/n]") ?? "Y";
     if (useEnv.toLowerCase() === "n") {
-      const entered = promptFn("Enter Linear API key:");
-      if (!entered) throw new Error("API key is required");
-      apiKey = entered;
+      const entered = promptFn("Enter Linear OAuth token:");
+      if (!entered) throw new Error("OAuth token is required");
+      oauthToken = entered;
     } else {
-      apiKey = "$LINEAR_API_KEY";
+      oauthToken = "$LINEAR_OAUTH_TOKEN";
     }
   } else {
-    const entered = promptFn("Enter Linear API key:");
-    if (!entered) throw new Error("API key is required");
-    apiKey = entered;
+    const entered = promptFn("Enter Linear OAuth token:");
+    if (!entered) throw new Error("OAuth token is required");
+    oauthToken = entered;
   }
 
   const projectName = promptFn("Project name:");
@@ -42,7 +42,7 @@ export async function runInit(
   const linearProject = promptFn("Linear project name:");
   if (!linearProject) throw new Error("Linear project name is required");
 
-  const content = generateConfig({ apiKey, projectName, repo, linearProject });
+  const content = generateConfig({ oauthToken, projectName, repo, linearProject });
   writeConfigFile(configPath, content);
 
   console.log("");

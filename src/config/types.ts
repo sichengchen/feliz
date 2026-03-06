@@ -1,8 +1,11 @@
 export interface FelizConfig {
   linear: {
-    api_key: string;
+    oauth_token: string;
   };
-  polling: {
+  webhook: {
+    port: number;
+  };
+  tick: {
     interval_ms: number;
   };
   storage: {
@@ -18,7 +21,7 @@ export interface FelizConfig {
 
 export interface ProjectAddConfig {
   linear: {
-    api_key: string;
+    oauth_token: string;
   };
   agent: {
     default: string;
@@ -75,7 +78,6 @@ export interface PipelineStep {
   prompt?: string;
   success?: SuccessCondition;
   max_attempts?: number;
-  builtin?: string;
 }
 
 export interface PipelinePhase {

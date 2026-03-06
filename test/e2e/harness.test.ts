@@ -7,8 +7,8 @@ import {
 
 function makeConfigYaml(): string {
   return `linear:
-  api_key: lin_test_key
-polling:
+  oauth_token: lin_test_key
+tick:
   interval_ms: 5000
 storage:
   data_dir: /tmp/feliz-e2e/data
@@ -29,7 +29,7 @@ function baseDeps(overrides: Partial<E2EHarnessDeps> = {}): E2EHarnessDeps {
     existsSync: (path: string) => path === "/tmp/feliz-e2e/feliz.yml",
     readFileSync: (_path: string) => makeConfigYaml(),
     env: {
-      LINEAR_API_KEY: "lin_test_key",
+      LINEAR_OAUTH_TOKEN: "lin_test_key",
       GITHUB_TOKEN: "ghp_test",
     },
     runCommand: (cmd: string, args: string[]) => {

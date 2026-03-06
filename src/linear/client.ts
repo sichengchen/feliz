@@ -68,11 +68,11 @@ query FelizPollIssues($projectName: String!, $after: String) {
 }`;
 
 export class LinearClient {
-  private apiKey: string;
+  private oauthToken: string;
   private fetch: typeof fetch;
 
-  constructor(apiKey: string, fetchFn: typeof fetch = globalThis.fetch) {
-    this.apiKey = apiKey;
+  constructor(oauthToken: string, fetchFn: typeof fetch = globalThis.fetch) {
+    this.oauthToken = oauthToken;
     this.fetch = fetchFn;
   }
 
@@ -85,7 +85,7 @@ export class LinearClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: this.apiKey,
+          Authorization: `Bearer ${this.oauthToken}`,
         },
         body: JSON.stringify({
           query: PROJECTS_QUERY,
@@ -124,7 +124,7 @@ export class LinearClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: this.apiKey,
+          Authorization: `Bearer ${this.oauthToken}`,
         },
         body: JSON.stringify({
           query: ISSUES_QUERY,
@@ -166,7 +166,7 @@ export class LinearClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: this.apiKey,
+        Authorization: `Bearer ${this.oauthToken}`,
       },
       body: JSON.stringify({
         query: `mutation FelizUpdateIssueState($issueId: String!, $stateId: String!) {
@@ -185,7 +185,7 @@ export class LinearClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: this.apiKey,
+        Authorization: `Bearer ${this.oauthToken}`,
       },
       body: JSON.stringify({
         query: `mutation FelizCreateComment($issueId: String!, $body: String!) {
@@ -197,6 +197,50 @@ export class LinearClient {
         },
       }),
     });
+  }
+
+  async emitThought(sessionId: string, content: string): Promise<void> {
+    const response = await this.fetch("https://api.linear.app/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.oauthToken}`,
+      },
+      body: JSON.stringify({
+        query: `mutation FelizEmitThought($sessionId: String!, $content: String!) {
+  agentActivityCreate(input: { agentSessionId: $sessionId, type: "thought", content: $content }) { success }
+}`,
+        variables: {
+          sessionId,
+          content,
+        },
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`emitThought failed: HTTP ${response.status}`);
+    }
+  }
+
+  async emitComment(sessionId: string, content: string): Promise<void> {
+    const response = await this.fetch("https://api.linear.app/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.oauthToken}`,
+      },
+      body: JSON.stringify({
+        query: `mutation FelizEmitComment($sessionId: String!, $content: String!) {
+  agentActivityCreate(input: { agentSessionId: $sessionId, type: "comment", content: $content }) { success }
+}`,
+        variables: {
+          sessionId,
+          content,
+        },
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`emitComment failed: HTTP ${response.status}`);
+    }
   }
 }
 

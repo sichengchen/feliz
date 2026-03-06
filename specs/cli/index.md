@@ -70,7 +70,7 @@ When `feliz start` is run without an existing config file, Feliz scaffolds a tem
 
 An interactive wizard that prompts for:
 
-1. **Linear API key** — if `$LINEAR_API_KEY` is set, offers to use it; otherwise prompts for a literal key
+1. **Linear OAuth** — guides through OAuth app registration (`actor=app`) or accepts `$LINEAR_OAUTH_TOKEN` if already set
 2. **Project name** — human-readable identifier
 3. **Git repo URL** — remote URL to clone
 4. **Linear project name** — maps to the Linear project

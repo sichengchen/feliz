@@ -81,7 +81,10 @@ per IP address (5 attempts per 15 minutes).
 ## Spec Lifecycle
 
 ```
-Issue created
+User mentions @Feliz on a Linear issue
+    |
+    v
+Feliz reacts with 👀, creates WorkItem
     |
     v
 Feliz reads issue description
@@ -96,10 +99,10 @@ Feliz commits spec to branch, posts summary to Linear
 Human reviews, comments with feedback
     |
     v
-Feliz revises spec based on feedback
+Feliz reacts with 👀, revises spec based on feedback
     |
     v
-Human approves (@feliz approve)
+Human approves (@Feliz approve)
     |
     v
 Spec is committed to worktree, agent uses it as primary context
@@ -108,7 +111,7 @@ Spec is committed to worktree, agent uses it as primary context
 Agent implements against spec (design informs structure, cases inform tests)
     |
     v
-Gates verify: do tests cover the behavioral cases?
+Agent runs tests, commits, pushes, creates PR
 ```
 
 ## Spec as Context
@@ -123,22 +126,22 @@ The agent is instructed to implement the system described in the design section 
 
 ## Feature Decomposition
 
-When a user wants to add many features at once, they create a single high-level Linear issue (or epic) describing the full scope. Feliz detects this as a large feature and enters the `decomposing` state.
+When a user wants to add many features at once, they create a single high-level Linear issue and mention `@Feliz decompose`. Feliz can also detect large features automatically based on heuristics.
 
 **Detection heuristics** (any of):
-- Issue has an `epic` label or is a Linear project issue
+- User explicitly requests decomposition via `@Feliz decompose`
+- Issue has an `epic` label
 - Issue description exceeds a complexity threshold (multiple distinct features described)
-- User explicitly requests decomposition via `@feliz decompose`
 
 **Decomposition flow**:
 
 When `specs.enabled: true`:
 
 ```
-User creates high-level Linear issue
+User creates Linear issue and mentions @Feliz decompose
     |
     v
-Feliz detects large feature -> enters 'decomposing'
+Feliz reacts with 👀, detects large feature -> enters 'decomposing'
     |
     v
 Feliz drafts a project-level spec from the issue description
@@ -154,7 +157,7 @@ From the spec, Feliz proposes a breakdown:
 Feliz posts the breakdown to the parent Linear issue as a comment
     |
     v
-Human reviews, adjusts, approves (@feliz approve)
+Human reviews, adjusts, approves (@Feliz approve)
     |
     v
 Feliz creates sub-issues in Linear with:
@@ -167,19 +170,21 @@ Feliz creates sub-issues in Linear with:
 Feliz commits the project-level spec to the repo
     |
     v
-Sub-issues enter spec_drafting -> spec_review -> queued -> running -> completed
+Sub-issues are auto-mentioned by Feliz -> enter spec_drafting -> spec_review -> queued -> running -> completed
     |
     v
 Parent issue auto-completes when all sub-issues are completed
 ```
 
+**Milestone support**: If the parent issue belongs to a Linear milestone, all created sub-issues are added to the same milestone.
+
 When `specs.enabled: false`:
 
 ```
-User creates high-level Linear issue
+User creates Linear issue and mentions @Feliz decompose
     |
     v
-Feliz detects large feature -> enters 'decomposing'
+Feliz reacts with 👀, detects large feature -> enters 'decomposing'
     |
     v
 Feliz analyzes the description and proposes a breakdown:
@@ -191,7 +196,7 @@ Feliz analyzes the description and proposes a breakdown:
 Feliz posts the breakdown to the parent Linear issue as a comment
     |
     v
-Human reviews, adjusts, approves (@feliz approve)
+Human reviews, adjusts, approves (@Feliz approve)
     |
     v
 Feliz creates sub-issues in Linear with blocker relationships

@@ -8,10 +8,10 @@ Default location: `~/.feliz/feliz.yml`. Override with `--config <path>`.
 
 ```yaml
 linear:
-  api_key: $LINEAR_API_KEY
+  oauth_token: $LINEAR_OAUTH_TOKEN
 
-polling:
-  interval_ms: 30000
+webhook:
+  port: 3421
 
 storage:
   data_dir: ~/.feliz
@@ -30,8 +30,8 @@ projects:
 
 | Field | Default | Description |
 |---|---|---|
-| `linear.api_key` | — | Required. Supports `$ENV_VAR` syntax. |
-| `polling.interval_ms` | `30000` | Poll interval in milliseconds. |
+| `linear.oauth_token` | — | Required. Supports `$ENV_VAR` syntax. |
+| `webhook.port` | `3421` | Port for receiving Linear webhook events. |
 | `storage.data_dir` | `~/.feliz` | SQLite database and artifacts. |
 | `storage.workspace_root` | `{data_dir}/workspaces` | Git clones and worktrees. |
 | `agent.default` | `claude-code` | Default agent adapter. |
@@ -97,7 +97,7 @@ The default prompt template is `WORKFLOW.md` in the repo root. Templates support
 
 | Variable | Purpose |
 |---|---|
-| `LINEAR_API_KEY` | Linear API access |
+| `LINEAR_OAUTH_TOKEN` | Linear OAuth access |
 | `GITHUB_TOKEN` | PR creation and repo access |
 | `ANTHROPIC_API_KEY` | Claude Code agent |
 | `OPENAI_API_KEY` | Codex agent |

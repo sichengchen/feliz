@@ -1,28 +1,25 @@
 # Feliz
 
-Turn Linear issues into merged pull requests. Feliz is a self-hosted platform that orchestrates coding agents (Claude Code, Codex) through configurable pipelines — from issue discovery to PR delivery.
+Turn Linear issues into merged pull requests. Feliz is a self-hosted platform that orchestrates local coding agents (Claude Code, Codex) through configurable pipelines — from issue discovery to PR delivery.
 
 ## How it works
 
-```
-Issue appears in mapped Linear project (any state)
-  → Feliz polls and claims it
-  → Queues for execution
-  → Creates isolated git worktree
-  → Runs multi-step agent pipeline
-  → Executes test/lint gates
-  → Opens pull request
-```
-
-No dashboard needed. Linear is the input, GitHub PRs are the output. Every issue in a mapped project is picked up automatically. Monitor progress via the CLI (`feliz run list`, `feliz run show`).
+Assign a Linear issue to Feliz (or `@Feliz` mention) and it runs a configurable agent pipeline — implementation, testing, review, and PR creation — all handled by local coding agents in isolated git worktrees.
 
 ## Quick start
 
+You can use the [`feliz-setup`](skills/feliz-setup/SKILL.md) and [`feliz-add-project`](skills/feliz-add-project/SKILL.md) agent skills:
+
+1. **`feliz-setup`** — installs Feliz, configures credentials (Linear OAuth, GitHub token), writes `feliz.yml`, starts the daemon
+2. **`feliz-add-project`** — adds a repo, configures `.feliz/pipeline.yml`, prompt templates, and `WORKFLOW.md`
+
+Or manually:
+
 ```bash
-git clone <repo-url> && cd feliz
+git clone git@github.com:sichengchen/feliz.git && cd feliz
 bun install
 
-export LINEAR_API_KEY="lin_api_..."
+export LINEAR_OAUTH_TOKEN="lin_oauth_..."
 export GITHUB_TOKEN="ghp_..."
 
 bun run src/cli/index.ts init    # interactive setup
@@ -68,7 +65,7 @@ feliz e2e smoke                Run smoke checks
 
 Two layers:
 
-1. **Central config** (`~/.feliz/feliz.yml`) — Linear API key, storage paths, project mappings, agent defaults.
+1. **Central config** (`~/.feliz/feliz.yml`) — Linear OAuth token, webhook port, storage paths, project mappings, agent defaults.
 2. **Repo config** (`.feliz/config.yml` + `.feliz/pipeline.yml`) — agent behavior, pipeline steps, test/lint gates, hooks.
 
 See [docs/configuration.md](docs/configuration.md).
@@ -83,6 +80,7 @@ See [docs/configuration.md](docs/configuration.md).
 | [Pipelines](docs/pipelines.md) | Multi-phase pipeline definition |
 | [Agents](docs/agents.md) | Agent adapters and custom agents |
 | [CLI](docs/cli.md) | Full command reference |
+| [Skills](docs/skills.md) | Claude Code skills for setup and project config |
 
 ## Specs
 

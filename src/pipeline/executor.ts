@@ -21,7 +21,6 @@ export interface ExecuteParams {
   workDir: string;
   pipeline: PipelineDefinition;
   promptRenderer: (phaseName: string, stepName: string, cycle: number) => string;
-  onBuiltin?: (name: string) => Promise<boolean>;
 }
 
 export interface ExecuteResult {
@@ -86,28 +85,7 @@ export class PipelineExecutor {
               runHook(this.hooks.before_run, params.workDir);
             }
 
-            if (step.builtin) {
-              const builtinSuccess = params.onBuiltin
-                ? await params.onBuiltin(step.builtin)
-                : true;
-
-              this.db.updateStepResult(
-                seId,
-                builtinSuccess ? "succeeded" : "failed",
-                builtinSuccess ? 0 : 1,
-                builtinSuccess ? null : `Builtin "${step.builtin}" failed`
-              );
-
-              // Run after_run hook
-              if (this.hooks.after_run) {
-                runHook(this.hooks.after_run, params.workDir);
-              }
-
-              if (builtinSuccess) {
-                stepSucceeded = true;
-                break;
-              }
-            } else if (step.agent) {
+            if (step.agent) {
               const adapter = this.adapters[step.agent];
               if (!adapter) {
                 this.db.updateStepResult(
@@ -151,7 +129,7 @@ export class PipelineExecutor {
                 if (attempt < maxAttempts) continue;
               }
             } else {
-              // No agent, no builtin — just evaluate success condition
+              // No agent — just evaluate success condition
               if (this.hooks.after_run) {
                 runHook(this.hooks.after_run, params.workDir);
               }

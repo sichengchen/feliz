@@ -1,26 +1,20 @@
 # Skills
 
-Claude Code skills for bootstrapping Feliz projects.
-
-## `feliz-machine-setup`
-
-Host and container bootstrap: central `feliz.yml` setup, daemon lifecycle, E2E preflight.
-
-File: `skills/feliz-machine-setup/SKILL.md`
-
-## `feliz-project-onboarding`
-
-Per-repo setup: project mappings, `.feliz/config.yml`, `.feliz/pipeline.yml`, `WORKFLOW.md`.
-
-File: `skills/feliz-project-onboarding/SKILL.md`
+Claude Code skills for setting up and configuring Feliz.
 
 ## `feliz-setup`
 
-Router skill for mixed-scope requests. Delegates to machine-setup or project-onboarding as needed.
+Install and configure the Feliz service: prerequisites, credentials, Linear OAuth app setup, central `feliz.yml`, and daemon startup.
 
 File: `skills/feliz-setup/SKILL.md`
 
+## `feliz-add-project`
+
+Add a project to Feliz and configure its workflow: register in `feliz.yml`, clone repo, write `.feliz/config.yml`, `.feliz/pipeline.yml`, prompt templates, and `WORKFLOW.md`.
+
+File: `skills/feliz-add-project/SKILL.md`
+
 ## Recommended order
 
-1. `feliz-machine-setup` — get the daemon running
-2. `feliz-project-onboarding` — wire up each repo
+1. `feliz-setup` — install Feliz and get the daemon running
+2. `feliz-add-project` — add each project repo with its pipeline and prompts
