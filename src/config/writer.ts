@@ -7,7 +7,7 @@ export const CONFIG_TEMPLATE = `# Feliz configuration
 # Docs: https://github.com/anthropics/feliz
 
 linear:
-  api_key: $LINEAR_API_KEY  # Set this environment variable
+  oauth_token: $LINEAR_OAUTH_TOKEN  # Set this environment variable
 
 projects:
   - name: my-project
@@ -16,7 +16,7 @@ projects:
 `;
 
 export interface InitAnswers {
-  apiKey: string;
+  oauthToken: string;
   projectName: string;
   repo: string;
   linearProject: string;
@@ -27,7 +27,7 @@ export function generateConfig(answers: InitAnswers): string {
 # Docs: https://github.com/anthropics/feliz
 
 linear:
-  api_key: ${answers.apiKey}
+  oauth_token: ${answers.oauthToken}
 
 projects:
   - name: ${answers.projectName}

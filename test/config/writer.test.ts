@@ -14,8 +14,8 @@ import { loadFelizConfig, loadRepoConfig, loadPipelineConfig } from "../../src/c
 const TEST_DIR = "/tmp/feliz-writer-test";
 
 describe("CONFIG_TEMPLATE", () => {
-  test("contains api_key placeholder with env var ref", () => {
-    expect(CONFIG_TEMPLATE).toContain("api_key: $LINEAR_API_KEY");
+  test("contains oauth_token placeholder with env var ref", () => {
+    expect(CONFIG_TEMPLATE).toContain("oauth_token: $LINEAR_OAUTH_TOKEN");
   });
 
   test("contains project placeholders", () => {
@@ -32,12 +32,12 @@ describe("CONFIG_TEMPLATE", () => {
 describe("generateConfig", () => {
   test("produces YAML with provided values", () => {
     const yaml = generateConfig({
-      apiKey: "$LINEAR_API_KEY",
+      oauthToken: "$LINEAR_OAUTH_TOKEN",
       projectName: "backend",
       repo: "git@github.com:acme/backend.git",
       linearProject: "Backend API",
     });
-    expect(yaml).toContain("api_key: $LINEAR_API_KEY");
+    expect(yaml).toContain("oauth_token: $LINEAR_OAUTH_TOKEN");
     expect(yaml).toContain("name: backend");
     expect(yaml).toContain("repo: git@github.com:acme/backend.git");
     expect(yaml).toContain("linear_project: Backend API");
@@ -45,30 +45,30 @@ describe("generateConfig", () => {
 
   test("produces YAML with literal API key", () => {
     const yaml = generateConfig({
-      apiKey: "lin_api_abc123",
+      oauthToken: "lin_api_abc123",
       projectName: "frontend",
       repo: "git@github.com:acme/frontend.git",
       linearProject: "Frontend",
     });
-    expect(yaml).toContain("api_key: lin_api_abc123");
+    expect(yaml).toContain("oauth_token: lin_api_abc123");
   });
 
   test("round-trips through loadFelizConfig", () => {
-    process.env.LINEAR_API_KEY = "test-roundtrip-key";
+    process.env.LINEAR_OAUTH_TOKEN = "test-roundtrip-key";
     try {
       const yaml = generateConfig({
-        apiKey: "$LINEAR_API_KEY",
+        oauthToken: "$LINEAR_OAUTH_TOKEN",
         projectName: "backend",
         repo: "git@github.com:acme/backend.git",
         linearProject: "Backend API",
       });
       const config = loadFelizConfig(yaml);
-      expect(config.linear.api_key).toBe("test-roundtrip-key");
+      expect(config.linear.oauth_token).toBe("test-roundtrip-key");
       expect(config.projects[0]!.name).toBe("backend");
       expect(config.projects[0]!.repo).toBe("git@github.com:acme/backend.git");
       expect(config.projects[0]!.linear_project).toBe("Backend API");
     } finally {
-      delete process.env.LINEAR_API_KEY;
+      delete process.env.LINEAR_OAUTH_TOKEN;
     }
   });
 });
@@ -134,7 +134,7 @@ describe("generatePipelineYml", () => {
     expect(pipeline.phases[0]!.name).toBe("execute");
     expect(pipeline.phases[0]!.steps[0]!.name).toBe("run");
     expect(pipeline.phases[0]!.steps[0]!.success!.command).toBe("npm test");
-    expect(pipeline.phases[0]!.steps[1]!.builtin).toBe("publish");
+    expect(pipeline.phases[0]!.steps[1]!.prompt).toBe(".feliz/prompts/publish.md");
   });
 
   test("omits success condition without test command", () => {

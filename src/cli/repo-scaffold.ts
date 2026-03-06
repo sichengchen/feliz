@@ -65,7 +65,7 @@ You must create these paths:
 - single phase named "execute"
 - step "run" with prompt WORKFLOW.md
 - include success.command only when a test command is provided
-- step "create_pr" with builtin publish
+- step "create_pr" with prompt .feliz/prompts/publish.md
 
 WORKFLOW.md should contain the standard Feliz starter prompt template using variables like {{ project.name }} and {{ issue.identifier }}.
 

@@ -19,9 +19,9 @@ describe("runInit", () => {
     if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true });
   });
 
-  test("creates config with env var ref when LINEAR_API_KEY is set and user confirms", async () => {
-    const origEnv = process.env.LINEAR_API_KEY;
-    process.env.LINEAR_API_KEY = "lin_test_key";
+  test("creates config with env var ref when LINEAR_OAUTH_TOKEN is set and user confirms", async () => {
+    const origEnv = process.env.LINEAR_OAUTH_TOKEN;
+    process.env.LINEAR_OAUTH_TOKEN = "lin_test_key";
     try {
       const configPath = join(TEST_DIR, "feliz.yml");
       const promptFn = makePromptFn(["Y", "backend", "git@github.com:acme/backend.git", "Backend API"]);
@@ -31,22 +31,22 @@ describe("runInit", () => {
 
       expect(existsSync(configPath)).toBe(true);
       const content = readFileSync(configPath, "utf-8");
-      expect(content).toContain("api_key: $LINEAR_API_KEY");
+      expect(content).toContain("oauth_token: $LINEAR_OAUTH_TOKEN");
       expect(content).toContain("name: backend");
       expect(content).toContain("repo: git@github.com:acme/backend.git");
       expect(content).toContain("linear_project: Backend API");
     } finally {
       if (origEnv !== undefined) {
-        process.env.LINEAR_API_KEY = origEnv;
+        process.env.LINEAR_OAUTH_TOKEN = origEnv;
       } else {
-        delete process.env.LINEAR_API_KEY;
+        delete process.env.LINEAR_OAUTH_TOKEN;
       }
     }
   });
 
-  test("creates config with literal API key when env var not set", async () => {
-    const origEnv = process.env.LINEAR_API_KEY;
-    delete process.env.LINEAR_API_KEY;
+  test("creates config with literal OAuth token when env var not set", async () => {
+    const origEnv = process.env.LINEAR_OAUTH_TOKEN;
+    delete process.env.LINEAR_OAUTH_TOKEN;
     try {
       const configPath = join(TEST_DIR, "feliz.yml");
       const promptFn = makePromptFn(["lin_api_abc123", "frontend", "git@github.com:acme/frontend.git", "Frontend"]);
@@ -56,13 +56,13 @@ describe("runInit", () => {
 
       expect(existsSync(configPath)).toBe(true);
       const content = readFileSync(configPath, "utf-8");
-      expect(content).toContain("api_key: lin_api_abc123");
+      expect(content).toContain("oauth_token: lin_api_abc123");
       expect(content).toContain("name: frontend");
     } finally {
       if (origEnv !== undefined) {
-        process.env.LINEAR_API_KEY = origEnv;
+        process.env.LINEAR_OAUTH_TOKEN = origEnv;
       } else {
-        delete process.env.LINEAR_API_KEY;
+        delete process.env.LINEAR_OAUTH_TOKEN;
       }
     }
   });
@@ -86,8 +86,8 @@ describe("runInit", () => {
   });
 
   test("creates nested directories for config path", async () => {
-    const origEnv = process.env.LINEAR_API_KEY;
-    delete process.env.LINEAR_API_KEY;
+    const origEnv = process.env.LINEAR_OAUTH_TOKEN;
+    delete process.env.LINEAR_OAUTH_TOKEN;
     try {
       const configPath = join(TEST_DIR, "a", "b", "feliz.yml");
       const promptFn = makePromptFn(["lin_key_123", "proj", "git@github.com:o/r.git", "Proj"]);
@@ -98,9 +98,9 @@ describe("runInit", () => {
       expect(existsSync(configPath)).toBe(true);
     } finally {
       if (origEnv !== undefined) {
-        process.env.LINEAR_API_KEY = origEnv;
+        process.env.LINEAR_OAUTH_TOKEN = origEnv;
       } else {
-        delete process.env.LINEAR_API_KEY;
+        delete process.env.LINEAR_OAUTH_TOKEN;
       }
     }
   });
