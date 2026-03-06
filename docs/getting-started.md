@@ -2,6 +2,8 @@
 
 This guide walks through first install, first project onboarding, and first smoke validation.
 
+If you already have config and want day-to-day operation steps, use [usage.md](usage.md).
+
 ## Prerequisites
 
 - Bun
@@ -111,6 +113,7 @@ Issue interaction is driven from Linear (state changes/comments/labels). CLI is 
 
 ## Next Docs
 
+- [Usage](usage.md)
 - [Configuration](configuration.md)
 - [Pipelines](pipelines.md)
 - [Agents](agents.md)

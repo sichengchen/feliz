@@ -15,6 +15,18 @@ It turns Linear issues into pull requests by orchestrating coding agents, reposi
 Runtime: Bun + TypeScript
 Persistence: SQLite + filesystem + git repos
 
+## Use Feliz (Operator Flow)
+
+This is the shortest path to actually use it:
+
+1. Run bootstrap once: `bun run e2e:real -- --env-file scripts/e2e.env`
+2. Start daemon: `bun run src/cli/index.ts start --config /tmp/feliz-e2e/feliz.yml`
+3. Create issue in mapped Linear project.
+4. Watch run: `bun run src/cli/index.ts run list --config /tmp/feliz-e2e/feliz.yml`
+5. Inspect run: `bun run src/cli/index.ts run show <run_id> --config /tmp/feliz-e2e/feliz.yml`
+
+Detailed usage guide: [docs/usage.md](docs/usage.md)
+
 ## Quick Start (Local)
 
 ```bash
@@ -122,6 +134,7 @@ See [Configuration Guide](docs/configuration.md).
 
 ## Documentation
 
+- [Usage Guide](docs/usage.md)
 - [Getting Started](docs/getting-started.md)
 - [CLI Reference](docs/cli.md)
 - [Configuration Guide](docs/configuration.md)
