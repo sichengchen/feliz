@@ -103,7 +103,7 @@ When `specs.enabled: false` (no spec concept at all):
 
 | From | To | Trigger |
 |---|---|---|
-| `unclaimed` | `decomposing` | Issue detected as large feature (epic label, or Feliz judges complexity). Decomposition includes spec drafting only if `specs.enabled`. |
+| `unclaimed` | `decomposing` | Issue detected as large feature (epic label, or Feliz judges complexity). Decomposition includes spec drafting (system design + behavioral cases) only if `specs.enabled`. |
 | `unclaimed` | `spec_drafting` | `specs.enabled` AND not a large feature |
 | `unclaimed` | `queued` | `!specs.enabled` AND not a large feature |
 | `decomposing` | `decompose_review` | Feliz drafts breakdown, posts to Linear for approval |

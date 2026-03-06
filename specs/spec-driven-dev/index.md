@@ -1,5 +1,15 @@
 # Spec-Driven Development
 
+## What specs are
+
+Specs are **system design documents with behavioral cases**. They describe both the architecture/design of a feature and its expected behaviors through structured scenarios.
+
+A spec is not just BDD scenarios. It covers:
+- **System design**: data models, APIs, component interactions, invariants
+- **Behavioral cases**: Given/When/Then scenarios that define expected outcomes
+
+This mirrors how a team would design a feature: first understand the shape of the system, then enumerate the behaviors it must exhibit.
+
 ## Spec Structure
 
 When `specs.enabled: true`, specs are stored in the repo under `{specs.directory}/` (default: `specs/`).
@@ -8,24 +18,40 @@ When `specs.enabled: true`, specs are stored in the repo under `{specs.directory
 specs/
   index.md              # Master index linking to all specs
   auth/
-    index.md            # Auth module overview
-    login.md            # Login behavior spec
-    registration.md     # Registration behavior spec
+    index.md            # Auth module: design + behavioral cases
+    login.md            # Login: design + behavioral cases
+    registration.md     # Registration: design + behavioral cases
   payments/
     index.md
     checkout.md
 ```
 
-Each spec file follows a structured format:
+Each spec file follows a structured format covering system design and behavioral cases:
 
 ```markdown
 # Login
 
-## System Behavior
+## Overview
 
 The login system authenticates users via email/password or OAuth providers.
+Sessions are JWT-based with a 24-hour expiry. Failed attempts are rate-limited
+per IP address (5 attempts per 15 minutes).
 
-## Scenarios
+## Design
+
+### Data Model
+
+- `users` table: id, email, password_hash, created_at
+- `sessions` table: id, user_id, token, expires_at
+- `oauth_accounts` table: id, user_id, provider, provider_id
+
+### API
+
+- `POST /auth/login` — email/password login
+- `POST /auth/oauth/callback` — OAuth callback
+- `POST /auth/logout` — invalidate session
+
+## Behavioral Cases
 
 ### Successful email login
 - **Given** a registered user with email "user@example.com"
@@ -44,6 +70,12 @@ The login system authenticates users via email/password or OAuth providers.
 - **When** the OAuth callback succeeds
 - **Then** a new user account is created
 - **And** they receive a session token
+
+### Rate limiting
+- **Given** 5 failed login attempts from the same IP in 15 minutes
+- **When** a 6th attempt is made
+- **Then** the request is rejected with 429
+- **And** the lockout period is logged
 ```
 
 ## Spec Lifecycle
@@ -55,7 +87,7 @@ Issue created
 Feliz reads issue description
     |
     v
-Feliz drafts spec (behavior descriptions + scenarios)
+Feliz drafts spec (system design + behavioral cases)
     |
     v
 Feliz commits spec to branch, posts summary to Linear
@@ -73,10 +105,10 @@ Human approves (@feliz approve)
 Spec is committed to worktree, agent uses it as primary context
     |
     v
-Agent implements against spec scenarios
+Agent implements against spec (design informs structure, cases inform tests)
     |
     v
-Gates verify: do tests cover the spec scenarios?
+Gates verify: do tests cover the behavioral cases?
 ```
 
 ## Spec as Context
@@ -84,9 +116,10 @@ Gates verify: do tests cover the spec scenarios?
 When specs are enabled, the agent's context includes:
 - The specific spec file(s) relevant to the current issue
 - The spec index for broader project understanding
-- Spec scenarios serve as implicit acceptance criteria
+- System design sections inform implementation architecture
+- Behavioral cases serve as acceptance criteria and test targets
 
-The agent is instructed to implement behavior matching the spec scenarios and write tests that validate them.
+The agent is instructed to implement the system described in the design section and write tests that validate the behavioral cases.
 
 ## Feature Decomposition
 
@@ -109,11 +142,11 @@ Feliz detects large feature -> enters 'decomposing'
     |
     v
 Feliz drafts a project-level spec from the issue description
-  (behavior descriptions + scenarios for all sub-features)
+  (system design + behavioral cases for all sub-features)
     |
     v
 From the spec, Feliz proposes a breakdown:
-  - Individual sub-issues (one per behavior/scenario group)
+  - Individual sub-issues (one per component/behavior group)
   - Dependency graph between sub-issues
   - Suggested implementation order
     |
@@ -170,6 +203,6 @@ Sub-issues enter queued -> running -> completed (no spec phases)
 Parent issue auto-completes when all sub-issues are completed
 ```
 
-**Spec-to-issue mapping** (only when `specs.enabled`): Each sub-issue references specific spec files/scenarios. When Feliz works on a sub-issue, the relevant spec sections are included in context. The spec index (`specs/index.md`) is updated to reflect the full feature structure.
+**Spec-to-issue mapping** (only when `specs.enabled`): Each sub-issue references specific spec files/sections. When Feliz works on a sub-issue, the relevant spec sections are included in context. The spec index (`specs/index.md`) is updated to reflect the full feature structure.
 
 **Dependency enforcement**: Sub-issues with blockers in non-terminal states remain in `queued` but are not dispatched. They become eligible for dispatch only when all blockers reach terminal states (detected during the poll cycle).

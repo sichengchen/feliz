@@ -56,6 +56,29 @@ Run in the worktree directory with `cwd` set accordingly.
 
 Parse JSON output for structured results (token usage, files changed, etc.).
 
+## Codex Adapter
+
+Invocation:
+
+```bash
+codex exec \
+  --json \
+  -s {sandbox} \
+  "{prompt}"
+```
+
+Run in the worktree directory with `cwd` set accordingly.
+
+**Sandbox mapping** from `approvalPolicy`:
+
+| Policy | Sandbox Mode | Behavior |
+|---|---|---|
+| `auto` | `danger-full-access` | Full filesystem and network access |
+| `suggest` | `workspace-write` | Can write to workspace, no external access |
+| `gated` | `read-only` | Read-only, for planning/review steps |
+
+Parse JSONL output (one JSON object per line). Extract the last `message` event's `content` as the summary.
+
 ## Pipeline Execution Sequence
 
 When a work item enters `running`, Feliz executes the pipeline defined in `.feliz/pipeline.yml`:

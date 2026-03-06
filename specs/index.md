@@ -5,9 +5,9 @@ Feliz is a long-running orchestration service that connects Linear (as the prima
 ## Core value proposition
 
 1. **Linear as the single interface** — users interact with Feliz through issue state changes, comments, and labels. No separate UI needed.
-2. **Spec-driven development** (optional) — Feliz collaboratively authors system behavior specs before (or during) coding, stored in the repo as structured markdown.
+2. **Spec-driven development** (optional) — Feliz collaboratively authors specs (system design + behavioral cases) before coding, stored in the repo as structured markdown.
 3. **Persistent context** — a layered context model ensures project knowledge, past decisions, and run history are available to every agent run.
-4. **Pluggable agents** — an adapter interface allows any CLI-based coding agent to be dispatched. Ships with Claude Code as the default backend.
+4. **Pluggable agents** — an adapter interface allows any CLI-based coding agent to be dispatched. Includes a Claude Code adapter by default. Agent CLIs are installed separately.
 5. **Full automation** — Feliz creates PRs, posts results to Linear, and updates issue state autonomously, gated by configurable approval policies.
 
 ## Non-goals for MVP

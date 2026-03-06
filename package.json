@@ -1,0 +1,25 @@
+{
+  "name": "feliz",
+  "version": "0.1.0",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "feliz": "./src/cli/index.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "lint": "bunx --bun tsc --noEmit",
+    "build": "bun build src/index.ts --outdir dist --target bun"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "yaml": "^2.4.0"
+  }
+}

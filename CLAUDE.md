@@ -25,6 +25,10 @@ Always use TDD:
 
 Never write code without a test. Never skip the red step.
 
+### Commit frequently
+
+Commit on milestones — after each meaningful step (e.g., tests green, feature wired in, docs updated). Commit at least once for each small task. Do not batch unrelated changes into a single large commit.
+
 ### Commit messages
 
 Use conventional commits: `type(scope): description`

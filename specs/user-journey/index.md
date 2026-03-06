@@ -207,11 +207,11 @@ Feliz is now polling the Linear project for issues. There are none yet.
 
 4. Feliz analyzes the description and **drafts a project-level spec**:
    - `specs/index.md` — master overview
-   - `specs/credit-cards/index.md` — credit card processing behaviors
-   - `specs/subscriptions/index.md` — subscription billing behaviors
-   - `specs/invoicing/index.md` — invoicing behaviors
-   - `specs/webhooks/index.md` — webhook notification behaviors
-   - Each with scenario/behavior descriptions (Given/When/Then).
+   - `specs/credit-cards/index.md` — credit card processing: design + behavioral cases
+   - `specs/subscriptions/index.md` — subscription billing: design + behavioral cases
+   - `specs/invoicing/index.md` — invoicing: design + behavioral cases
+   - `specs/webhooks/index.md` — webhook notifications: design + behavioral cases
+   - Each contains system design (data models, APIs, interactions) and behavioral cases (Given/When/Then).
 5. From the spec, Feliz **proposes a breakdown** into sub-issues, posted as a Linear comment on the epic:
    ```
    Proposed breakdown into 12 sub-issues:
@@ -287,7 +287,7 @@ Feliz is now polling the Linear project for issues. There are none yet.
 1. User moves PAY-101 (Database schema) to "Todo" in Linear.
 2. Feliz picks it up on the next poll cycle.
 3. Context assembly:
-   - **With specs**: Feliz finds the relevant spec sections for this issue and includes them as context.
+   - **With specs**: Feliz finds the relevant spec files (system design and behavioral cases) for this issue and includes them as context.
    - **Without specs**: Feliz uses the issue description and any accumulated project memory (conventions, prior run summaries).
 4. Pipeline executes:
    - **implement phase**: Claude Code writes migrations and models, runs tests.
@@ -302,10 +302,10 @@ Feliz is now polling the Linear project for issues. There are none yet.
 *This scenario only applies when `specs.enabled: true`.*
 
 1. User moves PAY-107 (Subscription lifecycle) to "Todo".
-2. Feliz detects ambiguity (spec scenarios don't fully cover edge cases for upgrades/downgrades).
-3. Feliz enters `spec_drafting` — drafts additional scenarios:
+2. Feliz detects ambiguity (spec doesn't fully cover edge cases for upgrades/downgrades).
+3. Feliz enters `spec_drafting` — drafts additional design details and behavioral cases:
    ```
-   I've drafted additional scenarios for subscription lifecycle:
+   I've drafted additional design and cases for subscription lifecycle:
 
    ### Mid-cycle upgrade
    - Given a user on the "Basic" plan with 15 days remaining
@@ -381,7 +381,7 @@ Feliz is now polling the Linear project for issues. There are none yet.
 1. User creates a new Linear issue: "Add authentication middleware and protect all payment endpoints."
 2. This issue doesn't belong to the original decomposition — it's a new cross-cutting concern.
 3. Feliz picks it up normally. Context assembly includes:
-   - **Memory**: project conventions, architectural decisions, and specs (if enabled — all the behavior descriptions written so far)
+   - **Memory**: project conventions, architectural decisions, and specs (if enabled — system design + behavioral cases written so far)
    - **History**: summaries of prior runs (what code was written, which files changed)
    - **Scratchpad**: any notes promoted from prior runs about conventions discovered
 4. The agent implements auth middleware with awareness of the existing codebase structure, because Feliz provided accumulated context.
@@ -427,13 +427,13 @@ Feliz is now polling the Linear project for issues. There are none yet.
 2. User creates a Linear issue describing the feature.
 3. Feliz enters `spec_drafting`:
    - Reads the existing specs to understand the current payment architecture.
-   - Drafts new spec files: `specs/ach-transfers/index.md` with scenarios.
+   - Drafts new spec files: `specs/ach-transfers/index.md` with design and behavioral cases.
    - **Also identifies specs that need updating**: the charge creation spec now needs an ACH path.
 4. Feliz proposes both new specs and spec modifications:
    ```
    New specs:
-   - specs/ach-transfers/index.md (5 scenarios)
-   - specs/ach-transfers/verification.md (3 scenarios)
+   - specs/ach-transfers/index.md (design + 5 behavioral cases)
+   - specs/ach-transfers/verification.md (design + 3 behavioral cases)
 
    Modified specs:
    - specs/credit-cards/charge.md — added "payment method type" branching
@@ -497,6 +497,6 @@ The user **never** needs to:
 - Manually assign work to agents
 - Write prompts or configure per-issue agent behavior
 - Context-switch to a different tool for AI-assisted coding
-- Maintain documentation separately (when specs are enabled, they are the living docs)
+- Maintain documentation separately (when specs are enabled, they serve as living system design docs)
 
 Linear is the control surface. The repo is the output. Feliz is the engine in between.

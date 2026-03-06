@@ -113,7 +113,7 @@ concurrency:
 | `hooks.before_run` | string | none | Shell command before each pipeline step. |
 | `hooks.after_run` | string | none | Shell command after each pipeline step. |
 | `hooks.before_remove` | string | none | Shell command before worktree removal. |
-| `specs.enabled` | boolean | `false` | Enable spec-driven development for this repo. When `false`, Feliz has no concept of specs: no spec drafting, no spec review states, no spec artifacts, no decomposition-to-spec flow. Sections 8 and 8.4 are entirely inactive. |
+| `specs.enabled` | boolean | `false` | Enable spec-driven development for this repo. Specs are system design documents with behavioral cases. When `false`, Feliz has no concept of specs: no spec drafting, no spec review states, no spec artifacts, no decomposition-to-spec flow. |
 | `specs.directory` | string | `specs` | Directory in repo root where specs are stored. Only used when `specs.enabled: true`. |
 | `specs.approval_required` | boolean | `true` | Whether spec drafts require human approval before execution. Only used when `specs.enabled: true`. |
 | `gates.test_command` | string | none | Command to run tests. |
