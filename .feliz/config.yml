@@ -1,4 +1,0 @@
-agent:
-  adapter: claude-code
-specs:
-  enabled: true

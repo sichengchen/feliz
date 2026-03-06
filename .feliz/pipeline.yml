@@ -1,7 +1,0 @@
-phases:
-  - name: execute
-    steps:
-      - name: run
-        prompt: WORKFLOW.md
-      - name: create_pr
-        builtin: publish
