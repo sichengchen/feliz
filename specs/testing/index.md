@@ -219,6 +219,12 @@ bun run src/cli/index.ts e2e doctor --config /tmp/feliz-e2e/feliz.yml
 bun run src/cli/index.ts e2e smoke --config /tmp/feliz-e2e/feliz.yml
 ```
 
+Repo helper script (loads env file and writes a JSON report):
+
+```bash
+bash scripts/e2e-smoke.sh --env-file scripts/e2e.env.example --config /tmp/feliz-e2e/feliz.yml --report /tmp/feliz-e2e-smoke-report.json
+```
+
 Use JSON output for CI/staging ingestion:
 
 ```bash
