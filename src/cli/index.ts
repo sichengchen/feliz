@@ -336,6 +336,53 @@ async function main() {
     return;
   }
 
+  if (cmd.command === "project" && cmd.subcommand === "add") {
+    try {
+      if (!existsSync(configPath)) {
+        console.error("Config file not found. Run `feliz init` first.");
+        process.exit(1);
+      }
+      const rl = await import("readline");
+      const iface = rl.createInterface({ input: process.stdin, output: process.stdout });
+      const ask = (q: string): Promise<string> =>
+        new Promise((resolve) => iface.question(q, resolve));
+      const name = await ask("Project name: ");
+      const repo = await ask("Git repo URL: ");
+      const linearProject = await ask("Linear project name: ");
+      const branch = (await ask("Base branch (main): ")) || "main";
+      iface.close();
+
+      const { addProjectToConfig } = await import("./project.ts");
+      addProjectToConfig(configPath, { name, repo, linear_project: linearProject, branch });
+      console.log(`Added project "${name}".`);
+    } catch (e: any) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (cmd.command === "project" && cmd.subcommand === "remove") {
+    const name = cmd.args[0];
+    if (!name) {
+      console.error("Usage: feliz project remove <name>");
+      process.exit(1);
+    }
+    try {
+      if (!existsSync(configPath)) {
+        console.error("Config file not found. Run `feliz init` first.");
+        process.exit(1);
+      }
+      const { removeProjectFromConfig } = await import("./project.ts");
+      removeProjectFromConfig(configPath, name);
+      console.log(`Removed project "${name}".`);
+    } catch (e: any) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
+    return;
+  }
+
   if (cmd.command === "init") {
     const { runInit } = await import("./init.ts");
     await runInit(configPath);
