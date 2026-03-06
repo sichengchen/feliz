@@ -1,168 +1,161 @@
 # CLI Reference
 
-The Feliz CLI manages the daemon and inspects state. All issue interaction happens through Linear — the CLI is for operations only.
+Feliz CLI controls the daemon and inspects persisted state.
 
-## Global options
+## Global flags
 
-| Flag | Description |
-|---|---|
-| `--config <path>` | Path to `feliz.yml`. Default: `~/.feliz/feliz.yml` |
-| `--help`, `-h` | Show help text |
+- `--config <path>`: path to central config (`~/.feliz/feliz.yml` default)
+- `--json`: JSON output mode (`e2e` commands)
+- `--out <path>`: write JSON report to file (`e2e` commands)
+- `--help`, `-h`: show help
 
 ## Commands
 
-### `feliz init`
+### `start`
 
-Interactive setup wizard. Prompts for Linear API key, project name, repo URL, and Linear project name, then writes a valid `feliz.yml`.
-
-```bash
-feliz init
-feliz init --config /path/to/feliz.yml
-```
-
-If a config file already exists at the target path, prints a message and exits without overwriting. To reconfigure, delete the existing file first.
-
-### `feliz start`
-
-Start the Feliz daemon. Begins polling Linear and processing issues.
+Start daemon. If config file is missing, writes a template config and exits.
 
 ```bash
-feliz start
-feliz start --config /path/to/feliz.yml
+bun run src/cli/index.ts start
+bun run src/cli/index.ts start --config /tmp/feliz.yml
 ```
 
-If no config file exists, Feliz scaffolds a template `feliz.yml` at the default path (or `--config` path), prints instructions, and exits. Edit the template and re-run `feliz start`.
+### `init`
 
-On startup, Feliz:
-1. Loads and validates `feliz.yml`
-2. Creates storage directories if needed
-3. Opens the SQLite database
-4. Registers configured projects
-5. Clones repos that haven't been cloned yet
-6. Enters the main poll loop
-
-### `feliz stop`
-
-Stop the running daemon gracefully.
+Interactive setup wizard for initial `feliz.yml` creation.
 
 ```bash
-feliz stop
+bun run src/cli/index.ts init
 ```
 
-### `feliz status`
+### `stop`
 
-Show the current daemon status, number of projects, and active agents.
+Stop daemon using PID file in `storage.data_dir`.
 
 ```bash
-feliz status
+bun run src/cli/index.ts stop
 ```
 
-Output:
+### `status`
 
-```
-Feliz status: 2 project(s), 1 running agent(s).
-  backend-api: watching "Backend API"
-  frontend-app: watching "Frontend App"
-```
-
-### `feliz config validate`
-
-Validate the configuration file without starting the daemon.
+Show configured/running status from config + database.
 
 ```bash
-feliz config validate
-feliz config validate --config /path/to/feliz.yml
+bun run src/cli/index.ts status
 ```
 
-Checks:
-- YAML syntax
-- Required fields present (`linear.api_key`, at least one project, etc.)
-- Environment variables referenced by `$VAR` are set
+### `config validate`
 
-### `feliz config show`
-
-Print the fully resolved configuration with environment variables expanded.
+Validates central config and repo configs/pipelines for cloned projects.
 
 ```bash
-feliz config show
+bun run src/cli/index.ts config validate
 ```
 
-### `feliz project list`
+### `config show`
 
-List all configured projects from `feliz.yml`.
+Print resolved central config (env-expanded).
 
 ```bash
-feliz project list
+bun run src/cli/index.ts config show
 ```
 
-Output:
+### `project list`
 
-```
-backend-api: git@github.com:org/backend-api.git (Backend API)
-frontend-app: git@github.com:org/frontend-app.git (Frontend App)
-```
-
-### `feliz project add`
-
-Add a new project interactively. Prompts for:
-- Linear project name
-- Git repo URL
-- Base branch
-
-For agent-assisted setup workflows, treat machine bootstrap and project onboarding as separate concerns. See [Skills](skills.md).
-
-### `feliz project remove <name>`
-
-Remove a project from the configuration.
+List project mappings from central config.
 
 ```bash
-feliz project remove backend-api
+bun run src/cli/index.ts project list
 ```
 
-### `feliz run list`
+### `project add`
 
-List recent pipeline runs across all projects.
+Interactive project onboarding wizard.
 
 ```bash
-feliz run list
+bun run src/cli/index.ts project add
 ```
 
-### `feliz run show <run_id>`
+### `project remove <name>`
 
-Show details for a specific run: phase/step progress, result, failure reasons, PR URL.
+Remove mapping from central config.
 
 ```bash
-feliz run show run_abc123
+bun run src/cli/index.ts project remove backend-api
 ```
 
-### `feliz run retry <work_item>`
+### `run list`
 
-Manually retry a failed work item. Resets the work item to `queued` state.
+List recent runs.
 
 ```bash
-feliz run retry wi_xyz789
+bun run src/cli/index.ts run list
 ```
 
-### `feliz agent list`
+### `run show <run_id>`
 
-List installed agent adapters and their availability.
+Show run details and step executions.
 
 ```bash
-feliz agent list
+bun run src/cli/index.ts run show <run_id>
 ```
 
-### `feliz context history <project>`
+### `run retry <work_item_identifier>`
 
-Show recent history events for a project.
+Move failed item to `retry_queued`.
 
 ```bash
-feliz context history backend-api
+bun run src/cli/index.ts run retry BAC-123
 ```
 
-### `feliz context show <work_item>`
+### `agent list`
 
-Show the context snapshot for a specific work item: assembled history, memory, and scratchpad artifacts.
+Show installed adapter availability.
 
 ```bash
-feliz context show wi_xyz789
+bun run src/cli/index.ts agent list
 ```
+
+### `context history <project>`
+
+Show history events for a project.
+
+```bash
+bun run src/cli/index.ts context history backend-api
+```
+
+### `context show <work_item_identifier>`
+
+Show latest context snapshot and artifact refs for a work item.
+
+```bash
+bun run src/cli/index.ts context show BAC-123
+```
+
+### `e2e doctor`
+
+Check E2E prerequisites (tools/auth/config).
+
+```bash
+bun run src/cli/index.ts e2e doctor
+```
+
+### `e2e smoke`
+
+Run preflight smoke checks and scenario checklist projection.
+
+```bash
+bun run src/cli/index.ts e2e smoke
+bun run src/cli/index.ts e2e smoke --json --out /tmp/feliz-e2e-report.json
+```
+
+## Helper scripts
+
+From repo root:
+
+```bash
+bun run e2e:doctor
+bun run e2e:smoke
+```
+
+`e2e:smoke` runs `scripts/e2e-smoke.sh`.

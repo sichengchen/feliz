@@ -1,229 +1,105 @@
 # Getting Started
 
-This guide walks you through installing Feliz, connecting it to Linear, and processing your first issue.
+This guide walks through first install, first project onboarding, and first smoke validation.
 
 ## Prerequisites
 
-| Requirement | Why |
-|---|---|
-| [Bun](https://bun.sh) v1.0+ | Runtime for Feliz |
-| [Git](https://git-scm.com) | Workspace and worktree management |
-| [Linear API key](https://linear.app/settings/api) | Issue polling and writeback |
-| [GitHub token](https://github.com/settings/tokens) | PR creation (needs `repo` scope) |
-| Coding agent CLI | At least one: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), Codex, etc. |
+- Bun
+- Git
+- Linear API key
+- GitHub CLI (`gh`) authenticated
+- At least one supported agent CLI (`codex` or `claude`)
 
-## Installation
-
-### Option A: Docker (recommended for production)
-
-1. Clone the repo and configure credentials:
+## 1) Install Feliz
 
 ```bash
-git clone <repo-url> && cd feliz
-cp .env.example .env
-# Edit .env with your LINEAR_API_KEY, GITHUB_TOKEN, etc.
-```
-
-2. Build and start the container:
-
-```bash
-docker compose up -d --build
-```
-
-3. Run the setup wizard:
-
-```bash
-docker compose exec feliz feliz init
-```
-
-The wizard verifies your environment variables, connects to Linear, installs coding agents, and writes the initial `feliz.yml`.
-
-4. Add your first project:
-
-```bash
-docker compose exec feliz feliz project add
-```
-
-5. Verify:
-
-```bash
-docker compose exec feliz feliz status
-```
-
-### Option B: Local development
-
-1. Clone the repo and install dependencies:
-
-```bash
-git clone <repo-url> && cd feliz
+git clone <repo-url>
+cd feliz
 bun install
 ```
 
-2. Set environment variables:
+## 2) Set environment variables
 
 ```bash
 export LINEAR_API_KEY="lin_api_..."
-export GITHUB_TOKEN="ghp_..."
+export GITHUB_TOKEN="ghp_..."   # recommended for publish checks
 ```
 
-3. Create a config file using the interactive wizard:
+For E2E testing, put test-only values in `scripts/e2e.env` (copied from `scripts/e2e.env.example`) and pass it to the smoke script.
+
+## 3) Initialize central config
+
+Interactive wizard:
 
 ```bash
 bun run src/cli/index.ts init
 ```
 
-Or simply run `start` — Feliz scaffolds a template config on first run:
+You will be prompted for:
+
+1. Linear API key (or use existing `LINEAR_API_KEY` env var)
+2. Project name
+3. Git repo URL
+4. Linear project name
+
+This writes `~/.feliz/feliz.yml` by default.
+
+Alternative: run `start` first to scaffold a template config file, then edit manually.
+
+## 4) Start the daemon
 
 ```bash
 bun run src/cli/index.ts start
-# Edit ~/.feliz/feliz.yml with your settings, then re-run start
 ```
 
-4. Validate the config:
+Check status:
+
+```bash
+bun run src/cli/index.ts status
+```
+
+## 5) Add additional projects
+
+```bash
+bun run src/cli/index.ts project add
+```
+
+`project add` flow:
+
+1. Fetch Linear projects and choose one.
+2. Enter repo URL and base branch.
+3. Clone repo into workspace.
+4. If `.feliz/config.yml` is missing, scaffold `.feliz/` and `WORKFLOW.md`.
+5. Optionally commit and push scaffolded files.
+6. Append project mapping to central `feliz.yml`.
+
+## 6) Validate config and run preflight
 
 ```bash
 bun run src/cli/index.ts config validate
+bun run src/cli/index.ts e2e doctor
+bun run src/cli/index.ts e2e smoke
 ```
 
-5. Start the daemon:
+## 7) Use the repo smoke helper script
 
 ```bash
-bun run src/cli/index.ts start
+cp scripts/e2e.env.example scripts/e2e.env
+# edit scripts/e2e.env
+
+bash scripts/e2e-smoke.sh \
+  --env-file scripts/e2e.env \
+  --config /tmp/feliz-e2e/feliz.yml \
+  --report /tmp/feliz-e2e-smoke-report.json
 ```
 
-## Agent skills for setup
+## 8) Operate through Linear
 
-If you are using an agent to perform setup, use the split setup skills:
+Issue interaction is driven from Linear (state changes/comments/labels). CLI is operational and inspection tooling.
 
-- `feliz-machine-setup` for machine/container bootstrap and central `feliz.yml`
-- `feliz-project-onboarding` for adding a project and writing repo `.feliz/*`
-- `feliz-setup` as a router when scope is unclear
+## Next Docs
 
-Details: [Skills](skills.md)
-
-## Setting up your repo
-
-Feliz reads per-repo configuration from a `.feliz/` directory in your repo root. This is optional — Feliz works with sensible defaults.
-
-### Minimal setup (zero config)
-
-If your repo has no `.feliz/` directory, Feliz uses defaults:
-- Agent: `claude-code`
-- Pipeline: single-step (run agent, create PR)
-- Prompt: `WORKFLOW.md` in repo root (if it exists)
-- No test/lint gates
-- No spec-driven development
-
-### Recommended setup
-
-Create the following files in your repo:
-
-```
-my-project/
-  .feliz/
-    config.yml
-    pipeline.yml
-    prompts/
-      implement.md
-  WORKFLOW.md
-```
-
-**`.feliz/config.yml`** — repo-level settings:
-
-```yaml
-agent:
-  adapter: claude-code
-  approval_policy: auto
-  max_turns: 30
-  timeout_ms: 600000
-
-hooks:
-  after_create: bun install
-
-gates:
-  test_command: bun test
-  lint_command: bun run lint
-```
-
-**`WORKFLOW.md`** — default prompt template:
-
-```markdown
-# Task
-
-You are working on {{ project.name }}.
-
-## Issue
-
-**{{ issue.identifier }}**: {{ issue.title }}
-
-{{ issue.description }}
-
-## Instructions
-
-- Follow the coding conventions in this repository
-- Write tests for new functionality
-- Do not modify unrelated code
-```
-
-## Your first issue
-
-1. In Linear, create an issue in the project you configured (e.g., "My Project").
-2. Give it a title and description — be specific about what you want built.
-3. Move the issue to "Todo" (or whichever state triggers Feliz).
-
-Feliz will pick it up on the next poll cycle (default: 30 seconds).
-
-### What happens next
-
-1. Feliz discovers the issue and creates a local work item
-2. A git worktree is created for isolation (`feliz/{identifier}` branch)
-3. Context is assembled (issue description, repo memory, prior history)
-4. The prompt template is rendered with issue context
-5. The coding agent is dispatched in the worktree
-6. If gates are configured, tests and lint run after the agent finishes
-7. A PR is created and linked back to the Linear issue
-8. Feliz posts a summary comment on the issue
-
-### Checking status
-
-```bash
-# Show daemon status and active agents
-feliz status
-
-# List recent runs
-feliz run list
-```
-
-### If something goes wrong
-
-- Feliz posts failure details as a comment on the Linear issue
-- The work item enters `retry_queued` state with exponential backoff
-- Reply `@feliz retry` on the issue to retry immediately
-- Reply `@feliz cancel` to stop retrying
-
-## Enabling specs
-
-If you want Feliz to draft behavior specifications before coding:
-
-```yaml
-# .feliz/config.yml
-specs:
-  enabled: true
-  directory: specs
-  approval_required: true
-```
-
-When enabled, new issues go through `spec_drafting` -> `spec_review` before execution. Feliz drafts specs containing system design (data models, APIs, component interactions) and behavioral cases (Given/When/Then scenarios), then posts them to Linear for approval.
-
-## Enabling feature decomposition
-
-For large features, Feliz can break them into sub-issues automatically. Comment `@feliz decompose` on a large issue, or Feliz will detect it when the description suggests multiple concerns.
-
-Feliz proposes a breakdown with dependencies, posts it for approval, then creates the sub-issues in Linear.
-
-## Next steps
-
-- [Configuration Guide](configuration.md) — all config options explained
-- [Pipeline Guide](pipelines.md) — multi-step workflows
-- [CLI Reference](cli.md) — full command documentation
-- [Agent Guide](agents.md) — adapters and custom agents
+- [Configuration](configuration.md)
+- [Pipelines](pipelines.md)
+- [Agents](agents.md)
+- [CLI](cli.md)

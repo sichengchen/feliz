@@ -1,284 +1,136 @@
 # Feliz
 
-Self-hosted cloud agents platform.
+Feliz is a self-hosted cloud agents platform.
 
-Feliz turns Linear issues into merged pull requests. It orchestrates coding agents to implement, test, review, and ship code — autonomously.
+It turns Linear issues into pull requests by orchestrating coding agents, repository worktrees, test/lint gates, and publishing.
 
-Write an issue. Feliz writes the code.
+## What Feliz does
 
-## How it works
+1. Polls Linear projects for issue changes.
+2. Tracks each issue as a `WorkItem` with an orchestration state.
+3. Creates isolated git worktrees per run.
+4. Runs agent pipelines from repo config (`.feliz/pipeline.yml`).
+5. Publishes PRs and stores run/history/context artifacts.
 
-```
-Linear Issue --> Feliz --> Pull Request
-```
+Runtime: Bun + TypeScript
+Persistence: SQLite + filesystem + git repos
 
-1. You create an issue in Linear
-2. Feliz picks it up, assembles context, and dispatches a coding agent
-3. The agent implements the change in an isolated git worktree
-4. Feliz runs tests, creates a PR, and posts the result back to Linear
-
-No context switching. No prompting. Linear is your interface — Feliz is the engine.
-
-## Key features
-
-**Linear as the control surface** — Interact through issue states, comments, and labels. `@feliz start` to begin, `@feliz approve` to proceed, `@feliz retry` on failure.
-
-**Multi-step pipelines** — Define execution phases: write tests, implement code, run a review cycle with a different agent, fix issues, repeat until done.
-
-**Pluggable agents** — Adapters for Claude Code and Codex included. Add any CLI agent through a simple adapter interface. Agent CLIs are installed and authenticated separately.
-
-**Persistent context** — History, memory, and scratchpad layers ensure agents learn from prior runs. Conventions and decisions accumulate in the repo, not in ephemeral chat.
-
-**Spec-driven development** *(optional)* — Feliz drafts specs (system design + behavioral cases) before coding. Approve in Linear, then the agent implements against the spec.
-
-**Feature decomposition** — Describe a large feature in one issue. Feliz breaks it into sub-issues with dependencies, creates them in Linear, and works through them in order.
-
-## Getting started
-
-See the full **[Getting Started Guide](docs/getting-started.md)** for detailed setup instructions, or follow the quick start below.
-
-### Agent setup skills
-
-Feliz setup workflows are split into two distinct skills:
-
-- **Machine/bootstrap setup**: [`feliz-machine-setup`](skills/feliz-machine-setup/SKILL.md)
-- **Project onboarding**: [`feliz-project-onboarding`](skills/feliz-project-onboarding/SKILL.md)
-
-Use [`feliz-setup`](skills/feliz-setup/SKILL.md) as a router when you want the setup agent to choose the correct one.
-
-### Prerequisites
-
-- [Bun](https://bun.sh) v1.0+
-- [Git](https://git-scm.com)
-- A [Linear](https://linear.app) account with an API key
-- A [GitHub](https://github.com) personal access token (for PR creation)
-- A coding agent CLI installed (e.g., [Claude Code](https://docs.anthropic.com/en/docs/claude-code))
-
-### Quick start (Docker)
+## Quick Start (Local)
 
 ```bash
-# Clone the repo
-git clone <repo-url> && cd feliz
-
-# Copy and fill in your credentials
-cp .env.example .env
-# Edit .env with your LINEAR_API_KEY, GITHUB_TOKEN, etc.
-
-# Build and start Feliz
-docker compose up -d --build
-
-# Run the setup wizard
-docker compose exec feliz feliz init
-
-# Add your first project
-docker compose exec feliz feliz project add
-```
-
-### Quick start (local)
-
-```bash
-# Clone and install
-git clone <repo-url> && cd feliz
+# 1) Install deps
 bun install
 
-# Set environment variables
+# 2) Set required env
 export LINEAR_API_KEY="lin_api_..."
-export GITHUB_TOKEN="ghp_..."
+export GITHUB_TOKEN="ghp_..."   # recommended
 
-# Start the daemon
+# 3) Create config interactively
+bun run src/cli/index.ts init
+
+# 4) Start daemon
 bun run src/cli/index.ts start
 ```
 
-## Configuration
+In another terminal:
 
-Feliz uses two levels of configuration. See the **[Configuration Guide](docs/configuration.md)** for full details.
-
-### Central config (`feliz.yml`)
-
-Controls global settings: Linear API key, polling interval, storage paths, agent defaults, and project mappings.
-
-```yaml
-linear:
-  api_key: $LINEAR_API_KEY
-
-polling:
-  interval_ms: 30000
-
-storage:
-  data_dir: /data/feliz
-  workspace_root: /data/feliz/workspaces
-
-agent:
-  default: claude-code
-  max_concurrent: 5
-
-projects:
-  - name: backend-api
-    repo: git@github.com:org/backend-api.git
-    linear_project: Backend API
-    branch: main
+```bash
+bun run src/cli/index.ts status
+bun run src/cli/index.ts config validate
 ```
 
-### Per-repo config (`.feliz/` directory)
+If `start` is run before a config exists, Feliz scaffolds `~/.feliz/feliz.yml` and exits. Edit it, then run `start` again.
 
-Lives in each repo. Controls agent behavior, hooks, specs, gates, and pipelines.
+## Quick Start (Docker)
 
-```
-repo-root/
-  .feliz/
-    config.yml       # Agent, hooks, specs, gates settings
-    pipeline.yml     # Multi-step execution pipeline
-    prompts/         # Per-step prompt templates
-  WORKFLOW.md        # Default prompt template
+```bash
+cp .env.example .env
+# edit .env values
+
+docker compose up -d --build
 ```
 
-## Pipeline example
+Default container command is `start`. Run other commands with:
 
-Define multi-step workflows in `.feliz/pipeline.yml`:
-
-```yaml
-phases:
-  - name: implement
-    steps:
-      - name: write_tests
-        agent: claude-code
-        prompt: .feliz/prompts/write_tests.md
-        success: { command: "bun test --bail" }
-      - name: write_code
-        agent: claude-code
-        prompt: .feliz/prompts/write_code.md
-        success: { command: "bun test" }
-        max_attempts: 5
-
-  - name: review_cycle
-    repeat: { max: 3, on_exhaust: pass }
-    steps:
-      - name: review
-        agent: codex
-        prompt: .feliz/prompts/review.md
-        success: { agent_verdict: approved }
-      - name: fix_issues
-        agent: claude-code
-        prompt: .feliz/prompts/fix_review.md
-        success: { command: "bun test" }
-
-  - name: publish
-    steps:
-      - name: final_check
-        success: { command: "bun run lint && bun test" }
-      - name: create_pr
-        builtin: publish
+```bash
+docker compose exec feliz bun run src/cli/index.ts init
+docker compose exec feliz bun run src/cli/index.ts status
 ```
 
-## CLI reference
+## E2E Smoke Harness
 
-Feliz ships a CLI for managing the daemon and inspecting state. See the **[CLI Reference](docs/cli.md)** for full details.
+Use the repo helper script:
 
-```
-feliz start                    # Start the Feliz daemon
-feliz stop                     # Stop the daemon
-feliz status                   # Show daemon status
+```bash
+cp scripts/e2e.env.example scripts/e2e.env
+# edit scripts/e2e.env
 
-feliz config validate          # Validate configuration
-feliz config show              # Print resolved configuration
-
-feliz project list             # List configured projects
-feliz project add              # Add a new project
-feliz project remove <name>    # Remove a project
-
-feliz run list                 # List recent runs
-feliz run show <run_id>        # Show run details
-feliz run retry <work_item>    # Retry a failed work item
-
-feliz agent list               # List installed agents
-
-feliz context history <proj>   # Show history events
-feliz context show <item>      # Show context snapshot
+bash scripts/e2e-smoke.sh \
+  --env-file scripts/e2e.env \
+  --config /tmp/feliz-e2e/feliz.yml \
+  --report /tmp/feliz-e2e-smoke-report.json
 ```
 
-## Linear commands
+What it runs:
 
-Interact with Feliz through Linear comments:
+1. `feliz e2e doctor`
+2. `feliz e2e smoke --json --out ...`
 
-| Command | Effect |
-|---|---|
-| `@feliz start` | Dispatch agent immediately |
-| `@feliz plan` | Enter spec drafting phase (when `specs.enabled`) |
-| `@feliz retry` | Re-queue a failed work item |
-| `@feliz status` | Reply with current state and last run info |
-| `@feliz approve` | Approve spec/decomposition, proceed to next state |
-| `@feliz cancel` | Cancel running agent, release work item |
-| `@feliz decompose` | Break down a large feature into sub-issues |
+## CLI Overview
 
-## Architecture
-
-```
-+----------------------------------------------+
-|                Feliz Server                   |
-|                                               |
-|  Issue Poller <---- Linear GraphQL API        |
-|       |                                       |
-|       v                                       |
-|  Orchestrator (state machine, concurrency)    |
-|       |                                       |
-|       +-- Workspace Manager (git worktrees)   |
-|       +-- Context Store (history/memory/pad)  |
-|       +-- Spec Engine (optional)              |
-|       |                                       |
-|       v                                       |
-|  Agent Dispatch --> Claude Code / Codex / ... |
-|       |                                       |
-|       v                                       |
-|  Publisher --> PR + Linear update             |
-+----------------------------------------------+
+```text
+start                    Start the Feliz daemon
+init                     Interactive setup wizard
+stop                     Stop the daemon
+status                   Show daemon status
+config validate          Validate configuration
+config show              Print resolved configuration
+project list             List configured projects
+project add              Add a new project
+project remove <name>    Remove a project
+run list                 List recent runs
+run show <run_id>        Show run details
+run retry <work_item>    Retry a failed work item
+agent list               List installed agents
+context history <proj>   Show history events
+context show <item>      Show context snapshot
+e2e doctor               Validate local E2E prerequisites
+e2e smoke                Run automated E2E smoke checks
 ```
 
-- **Bun** runtime, **TypeScript**
-- **SQLite** for history and run state
-- **Git repo** for persistent memory (conventions, specs, decisions)
+## Configuration Model
+
+Feliz has two config layers:
+
+1. Central config (`feliz.yml`) for Linear key, storage, global concurrency, and project mappings.
+2. Repo config (`.feliz/config.yml` + `.feliz/pipeline.yml`) for agent behavior, specs, gates, and pipeline steps.
+
+See [Configuration Guide](docs/configuration.md).
 
 ## Documentation
 
-| Document | Description |
-|---|---|
-| [Getting Started](docs/getting-started.md) | Installation, setup, and first project |
-| [Skills](docs/skills.md) | Setup skills for machine bootstrap vs project onboarding |
-| [Configuration](docs/configuration.md) | All config options with examples |
-| [CLI Reference](docs/cli.md) | Full CLI command documentation |
-| [Pipelines](docs/pipelines.md) | Pipeline definition and execution model |
-| [Agents](docs/agents.md) | Agent adapters and how to add your own |
+- [Getting Started](docs/getting-started.md)
+- [CLI Reference](docs/cli.md)
+- [Configuration Guide](docs/configuration.md)
+- [Pipeline Guide](docs/pipelines.md)
+- [Agent Guide](docs/agents.md)
+- [Skills](docs/skills.md)
 
-### Specifications
+## Specification Index
 
-Full technical specification: **[specs/index.md](specs/index.md)**
+Specs are the source of truth for behavior and architecture:
 
-| Spec | Topic |
-|---|---|
-| [Architecture](specs/architecture/index.md) | System design and domain model |
-| [Configuration](specs/configuration/index.md) | Server config, repo config, pipelines |
-| [Linear Integration](specs/linear/index.md) | Polling, commands, writeback |
-| [Context Management](specs/context/index.md) | History, Memory, Scratchpad |
-| [Orchestration](specs/orchestration/index.md) | State machine, retry, concurrency |
-| [Agent Dispatch](specs/agents/index.md) | Adapter interface, pipeline execution |
-| [Publishing](specs/publishing/index.md) | PR creation, gates, Linear updates |
-| [User Journey](specs/user-journey/index.md) | Full project lifecycle walkthrough |
+- [Specs Index](specs/index.md)
+- [Architecture](specs/architecture/index.md)
+- [Configuration](specs/configuration/index.md)
+- [Orchestration](specs/orchestration/index.md)
+- [Testing Plan](specs/testing/index.md)
 
-## Development
+## Development Commands
 
 ```bash
-# Install dependencies
 bun install
-
-# Run tests
 bun test
-
-# Type-check
 bun run lint
-
-# Build
 bun run build
 ```
-
-## License
-
-MIT
