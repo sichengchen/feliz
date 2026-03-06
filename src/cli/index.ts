@@ -238,6 +238,91 @@ async function main() {
     return;
   }
 
+  if (cmd.command === "context" && cmd.subcommand === "history") {
+    const projectName = cmd.args[0];
+    if (!projectName) {
+      console.error("Usage: feliz context history <project>");
+      process.exit(1);
+    }
+    try {
+      const content = readFileSync(configPath, "utf-8");
+      const config = loadFelizConfig(content);
+      const dbPath = join(config.storage.data_dir, "db", "feliz.db");
+      if (!existsSync(dbPath)) {
+        console.log("No history found. Feliz has not been started yet.");
+        return;
+      }
+      const db = new Database(dbPath);
+      const project = db.getProjectByName(projectName);
+      if (!project) {
+        console.error(`Project not found: ${projectName}`);
+        db.close();
+        process.exit(1);
+      }
+      const entries = db.getHistory(project.id);
+      if (entries.length === 0) {
+        console.log(`No history events for project "${projectName}".`);
+        db.close();
+        return;
+      }
+      for (const e of entries) {
+        const ts = e.created_at.toISOString().slice(0, 19).replace("T", " ");
+        const wi = e.work_item_id ?? "-";
+        console.log(`${ts}  ${e.event_type.padEnd(25)} work_item=${wi}`);
+      }
+      db.close();
+    } catch (e: any) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (cmd.command === "context" && cmd.subcommand === "show") {
+    const identifier = cmd.args[0];
+    if (!identifier) {
+      console.error("Usage: feliz context show <work_item_identifier>");
+      process.exit(1);
+    }
+    try {
+      const content = readFileSync(configPath, "utf-8");
+      const config = loadFelizConfig(content);
+      const dbPath = join(config.storage.data_dir, "db", "feliz.db");
+      if (!existsSync(dbPath)) {
+        console.error("No data found. Feliz has not been started yet.");
+        process.exit(1);
+      }
+      const db = new Database(dbPath);
+      const wi = db.getWorkItemByLinearIdentifier(identifier);
+      if (!wi) {
+        console.error(`Work item not found: ${identifier}`);
+        db.close();
+        process.exit(1);
+      }
+      const snap = db.getLatestSnapshotForWorkItem(wi.id);
+      if (!snap) {
+        console.log(`No context snapshot for ${identifier}.`);
+        db.close();
+        return;
+      }
+      console.log(`Snapshot:    ${snap.id}`);
+      console.log(`Work Item:   ${identifier}`);
+      console.log(`Created:     ${snap.created_at.toISOString()}`);
+      console.log(`Token Budget: ${snap.token_budget.max_input} max input, ${snap.token_budget.reserved_system} reserved`);
+      if (snap.artifact_refs.length > 0) {
+        console.log("\nArtifacts:");
+        for (const ref of snap.artifact_refs) {
+          console.log(`  ${ref.path} (${ref.purpose})`);
+        }
+      }
+      db.close();
+    } catch (e: any) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
+    return;
+  }
+
   if (cmd.command === "agent" && cmd.subcommand === "list") {
     const { ClaudeCodeAdapter } = await import("../agents/claude-code.ts");
     const { CodexAdapter } = await import("../agents/codex.ts");

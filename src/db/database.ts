@@ -315,7 +315,7 @@ export class Database {
       sql += " AND work_item_id = ?2";
       params.push(workItemId);
     }
-    sql += ` ORDER BY created_at ASC LIMIT ?${params.length + 1}`;
+    sql += ` ORDER BY created_at ASC, rowid ASC LIMIT ?${params.length + 1}`;
     params.push(limit);
 
     const rows = this.db.query(sql).all(...(params as [string, ...string[]])) as Record<
