@@ -181,4 +181,99 @@ describe("IssuePoller", () => {
     const items = db.listWorkItemsByProject("proj-1");
     expect(items).toHaveLength(2);
   });
+
+  test("detects priority changes", async () => {
+    const mockClient = {
+      fetchProjectIssues: mock(() =>
+        Promise.resolve({
+          issues: [makeIssue()],
+          rateLimitLow: false,
+        })
+      ),
+    };
+
+    const poller = new IssuePoller(db, mockClient as any);
+    await poller.poll("proj-1", "Backend API");
+
+    mockClient.fetchProjectIssues = mock(() =>
+      Promise.resolve({
+        issues: [makeIssue({ priority: 2 })],
+        rateLimitLow: false,
+      })
+    );
+    const events = await poller.poll("proj-1", "Backend API");
+
+    // Priority change updates the work item in DB
+    const wi = db.getWorkItemByLinearId("lin-1");
+    expect(wi!.priority).toBe(2);
+  });
+
+  test("detects blocker changes", async () => {
+    const mockClient = {
+      fetchProjectIssues: mock(() =>
+        Promise.resolve({
+          issues: [makeIssue()],
+          rateLimitLow: false,
+        })
+      ),
+    };
+
+    const poller = new IssuePoller(db, mockClient as any);
+    await poller.poll("proj-1", "Backend API");
+
+    mockClient.fetchProjectIssues = mock(() =>
+      Promise.resolve({
+        issues: [makeIssue({ blocker_ids: ["blocker-1"] })],
+        rateLimitLow: false,
+      })
+    );
+    const events = await poller.poll("proj-1", "Backend API");
+
+    const wi = db.getWorkItemByLinearId("lin-1");
+    expect(wi!.blocker_ids).toEqual(["blocker-1"]);
+  });
+
+  test("detects label removals", async () => {
+    const mockClient = {
+      fetchProjectIssues: mock(() =>
+        Promise.resolve({
+          issues: [makeIssue({ labels: ["feliz", "priority"] })],
+          rateLimitLow: false,
+        })
+      ),
+    };
+
+    const poller = new IssuePoller(db, mockClient as any);
+    await poller.poll("proj-1", "Backend API");
+
+    mockClient.fetchProjectIssues = mock(() =>
+      Promise.resolve({
+        issues: [makeIssue({ labels: ["feliz"] })],
+        rateLimitLow: false,
+      })
+    );
+    const events = await poller.poll("proj-1", "Backend API");
+    expect(events.some((e) => e.event_type === "issue.label_removed")).toBe(true);
+    const removeEvent = events.find((e) => e.event_type === "issue.label_removed");
+    expect(removeEvent!.payload.label).toBe("priority");
+  });
+
+  test("records history for each event", async () => {
+    const mockClient = {
+      fetchProjectIssues: mock(() =>
+        Promise.resolve({
+          issues: [makeIssue()],
+          rateLimitLow: false,
+        })
+      ),
+    };
+
+    const poller = new IssuePoller(db, mockClient as any);
+    await poller.poll("proj-1", "Backend API");
+
+    const wi = db.getWorkItemByLinearId("lin-1");
+    const history = db.getHistory("proj-1", wi!.id);
+    expect(history).toHaveLength(1);
+    expect(history[0]!.event_type).toBe("issue.discovered");
+  });
 });

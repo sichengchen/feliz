@@ -209,4 +209,13 @@ describe("SpecEngine", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  test("approveSpec records spec.approved history event", () => {
+    db.updateWorkItemOrchestrationState("wi-1", "spec_review");
+    const engine = new SpecEngine(db, makeAdapter());
+    engine.approveSpec("wi-1");
+
+    const history = db.getHistory("proj-1", "wi-1");
+    expect(history.some((h) => h.event_type === "spec.approved")).toBe(true);
+  });
 });

@@ -103,6 +103,7 @@ interface ExistingItem {
   state: string;
   priority: number;
   labels: string[];
+  blocker_ids: string[];
 }
 
 function detectChanges(
@@ -140,6 +141,34 @@ function detectChanges(
               }
             : {}),
         },
+      },
+    });
+  }
+
+  if (existing.priority !== issue.priority) {
+    events.push({
+      event_type: "issue.priority_changed",
+      payload: {
+        work_item_id: existing.id,
+        old_priority: existing.priority,
+        new_priority: issue.priority,
+      },
+    });
+  }
+
+  // Detect blocker changes
+  const existingBlockers = new Set(existing.blocker_ids);
+  const newBlockers = new Set(issue.blocker_ids);
+  const blockersChanged =
+    existingBlockers.size !== newBlockers.size ||
+    [...existingBlockers].some((b) => !newBlockers.has(b));
+  if (blockersChanged) {
+    events.push({
+      event_type: "issue.blockers_changed",
+      payload: {
+        work_item_id: existing.id,
+        old_blocker_ids: existing.blocker_ids,
+        new_blocker_ids: issue.blocker_ids,
       },
     });
   }

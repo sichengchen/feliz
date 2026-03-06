@@ -234,4 +234,70 @@ describe("DecompositionEngine", () => {
       history.some((h) => h.event_type === "decomposition.proposed")
     ).toBe(true);
   });
+
+  test("sub items inherit feliz:sub-issue label", () => {
+    db.updateWorkItemOrchestrationState("wi-1", "decompose_review");
+    const engine = new DecompositionEngine(db, makeAdapter());
+
+    const subItemIds = engine.approveDecomposition("wi-1", [
+      { title: "Schema", description: "Create tables", dependencies: [] },
+    ]);
+
+    const sub = db.getWorkItem(subItemIds[0]!);
+    expect(sub!.labels).toContain("feliz:sub-issue");
+    expect(sub!.labels).toContain("epic");
+  });
+
+  test("returns empty array when parent not found", () => {
+    const engine = new DecompositionEngine(db, makeAdapter());
+    const result = engine.approveDecomposition("nonexistent", [
+      { title: "Schema", description: "Create tables", dependencies: [] },
+    ]);
+    expect(result).toEqual([]);
+  });
+
+  test("proposeDecomposition returns failure when work item not found", async () => {
+    const engine = new DecompositionEngine(db, makeAdapter());
+    const result = await engine.proposeDecomposition({
+      workItemId: "nonexistent",
+      workDir: TEST_WORK_DIR,
+      specsEnabled: false,
+      specDir: "specs",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test("proposeDecomposition returns failure when agent fails", async () => {
+    const failAdapter: AgentAdapter = {
+      name: "fail-agent",
+      isAvailable: async () => true,
+      execute: mock(async () => ({
+        status: "failed" as const,
+        exitCode: 1,
+        stdout: "",
+        stderr: "error",
+        filesChanged: [],
+      })),
+      cancel: mock(async () => {}),
+    };
+    const engine = new DecompositionEngine(db, failAdapter);
+    const result = await engine.proposeDecomposition({
+      workItemId: "wi-1",
+      workDir: TEST_WORK_DIR,
+      specsEnabled: false,
+      specDir: "specs",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test("records decomposition.approved history event on approval", () => {
+    db.updateWorkItemOrchestrationState("wi-1", "decompose_review");
+    const engine = new DecompositionEngine(db, makeAdapter());
+    engine.approveDecomposition("wi-1", [
+      { title: "Schema", description: "Create tables", dependencies: [] },
+    ]);
+
+    const history = db.getHistory("proj-1", "wi-1");
+    expect(history.some((h) => h.event_type === "decomposition.approved")).toBe(true);
+  });
 });
