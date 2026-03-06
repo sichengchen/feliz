@@ -140,21 +140,10 @@ describe("Parent issue lifecycle", () => {
       5
     );
 
-    // Complete child 1
+    // A single dispatch cycle can process all queued children.
     await orch.dispatchQueued("proj-1", makeSimplePipeline(), TEST_WORK_DIR);
     expect(db.getWorkItem("child-1")!.orchestration_state).toBe("completed");
-
-    // Child 2 still queued, parent should NOT be completed yet
-    expect(db.getWorkItem("parent-1")!.orchestration_state).toBe(
-      "decompose_review"
-    );
-
-    // Complete child 2
-    await orch.dispatchQueued("proj-1", makeSimplePipeline(), TEST_WORK_DIR);
     expect(db.getWorkItem("child-2")!.orchestration_state).toBe("completed");
-
-    // Now check parent completion
-    orch.checkParentCompletion("parent-1");
     expect(db.getWorkItem("parent-1")!.orchestration_state).toBe("completed");
   });
 

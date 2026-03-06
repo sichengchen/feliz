@@ -135,7 +135,11 @@ export class FelizServer {
           this.adapters,
           repoConfig,
           join(this.config.storage.data_dir, "scratchpad"),
-          this.config.agent.max_concurrent
+          this.config.agent.max_concurrent,
+          {
+            workspace: this.workspace,
+            publisher: this.publisher,
+          }
         );
 
         // Transition unclaimed to queued/spec_drafting
@@ -144,11 +148,17 @@ export class FelizServer {
           orchestrator.processNewIssue(wi.id);
         }
 
+        const workDir = this.workspace.getRepoPath(projConfig.name);
+        if (existsSync(workDir)) {
+          // Advance long-running orchestration states.
+          await orchestrator.processDecomposing(project.id, workDir);
+          await orchestrator.processSpecDrafting(project.id, workDir);
+        }
+
         // Promote retry_queued items whose backoff has elapsed
         orchestrator.promoteRetryQueued(project.id);
 
         // Dispatch queued items
-        const workDir = this.workspace.getRepoPath(projConfig.name);
         if (existsSync(workDir)) {
           await orchestrator.dispatchQueued(project.id, pipeline, workDir);
         }

@@ -218,7 +218,11 @@ describe("LinearClient", () => {
     await client.updateIssueState("lin-1", "state-id-123");
     expect(updateFetch).toHaveBeenCalledTimes(1);
 
-    const body = JSON.parse((updateFetch.mock.calls[0]![1] as { body: string }).body);
+    const updateCall = updateFetch.mock.calls[0] as unknown as [
+      string,
+      { body: string }
+    ];
+    const body = JSON.parse(updateCall[1].body);
     expect(body.query).toContain("mutation FelizUpdateIssueState");
     expect(body.variables).toEqual({
       issueId: "lin-1",
@@ -242,7 +246,11 @@ describe("LinearClient", () => {
     await client.createComment("lin-1", "Hello from Feliz");
     expect(commentFetch).toHaveBeenCalledTimes(1);
 
-    const body = JSON.parse((commentFetch.mock.calls[0]![1] as { body: string }).body);
+    const createCommentCall = commentFetch.mock.calls[0] as unknown as [
+      string,
+      { body: string }
+    ];
+    const body = JSON.parse(createCommentCall[1].body);
     expect(body.query).toContain("mutation FelizCreateComment");
     expect(body.variables).toEqual({
       issueId: "lin-1",
@@ -266,7 +274,11 @@ describe("LinearClient", () => {
     const rawComment = `Line 1\nHe said "quote"`;
     await client.createComment("lin-escaped", rawComment);
 
-    const body = JSON.parse((commentFetch.mock.calls[0]![1] as { body: string }).body);
+    const escapedCommentCall = commentFetch.mock.calls[0] as unknown as [
+      string,
+      { body: string }
+    ];
+    const body = JSON.parse(escapedCommentCall[1].body);
     expect(body.variables.issueId).toBe("lin-escaped");
     expect(body.variables.body).toBe(rawComment);
   });

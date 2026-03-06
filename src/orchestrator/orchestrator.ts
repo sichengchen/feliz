@@ -4,6 +4,8 @@ import type { RepoConfig, PipelineDefinition, PipelineStep } from "../config/typ
 import { PipelineExecutor } from "../pipeline/executor.ts";
 import { ContextAssembler } from "../context/assembler.ts";
 import { canTransition, nextStateForNewIssue } from "./state-machine.ts";
+import { SpecEngine } from "./spec-engine.ts";
+import { DecompositionEngine } from "./decomposition.ts";
 import { renderTemplate } from "../config/template.ts";
 import { newId } from "../id.ts";
 import type { OrchestrationState, WorkItem } from "../domain/types.ts";
@@ -14,25 +16,63 @@ const MAX_RETRY_BACKOFF_MS = 300000;
 const DEFAULT_MAX_RETRIES = 3;
 const TERMINAL_STATES: OrchestrationState[] = ["completed", "failed", "cancelled"];
 
+interface WorkspaceRuntime {
+  createWorktree?: (
+    projectName: string,
+    identifier: string,
+    baseBranch: string
+  ) => Promise<string>;
+  removeWorktree?: (projectName: string, identifier: string) => Promise<void>;
+  getBranchName?: (identifier: string) => string;
+  runHook?: (
+    workDir: string,
+    command: string
+  ) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
+}
+
+interface PublisherRuntime {
+  publish: (
+    params: {
+      workDir: string;
+      branchName: string;
+      identifier: string;
+      title: string;
+      linearUrl: string;
+      summary: string;
+      filesChanged: string[];
+      testResults: string | null;
+    },
+    baseBranch: string
+  ) => Promise<{ prUrl: string }>;
+}
+
+interface OrchestratorOptions {
+  workspace?: WorkspaceRuntime;
+  publisher?: PublisherRuntime;
+}
+
 export class Orchestrator {
   private db: Database;
   private adapters: Record<string, AgentAdapter>;
   private repoConfig: RepoConfig;
   private scratchpadRoot: string;
   private maxConcurrent: number;
+  private options: OrchestratorOptions;
 
   constructor(
     db: Database,
     adapters: Record<string, AgentAdapter>,
     repoConfig: RepoConfig,
     scratchpadRoot: string,
-    maxConcurrent: number
+    maxConcurrent: number,
+    options: OrchestratorOptions = {}
   ) {
     this.db = db;
     this.adapters = adapters;
     this.repoConfig = repoConfig;
     this.scratchpadRoot = scratchpadRoot;
     this.maxConcurrent = maxConcurrent;
+    this.options = options;
   }
 
   processNewIssue(workItemId: string): void {
@@ -58,11 +98,33 @@ export class Orchestrator {
 
     const available = this.maxConcurrent - running;
     const queued = this.db.listWorkItemsByState(projectId, "queued");
+    const stateLimits = this.repoConfig.concurrency.max_per_state ?? {};
+    const runningInProject = this.db.listWorkItemsByState(projectId, "running");
+    const runningByState = new Map<string, number>();
+    for (const item of runningInProject) {
+      runningByState.set(item.state, (runningByState.get(item.state) ?? 0) + 1);
+    }
 
-    // Filter out items with non-terminal blockers
-    const eligible = queued.filter((wi) => this.areBlockersResolved(wi));
+    const toDispatch: WorkItem[] = [];
+    for (const wi of queued) {
+      if (!this.areBlockersResolved(wi)) continue;
 
-    const toDispatch = eligible.slice(0, available);
+      const perStateLimit = stateLimits[wi.state];
+      const currentlyRunningInState = runningByState.get(wi.state) ?? 0;
+      if (
+        perStateLimit !== undefined &&
+        currentlyRunningInState >= perStateLimit
+      ) {
+        continue;
+      }
+
+      toDispatch.push(wi);
+      if (perStateLimit !== undefined) {
+        runningByState.set(wi.state, currentlyRunningInState + 1);
+      }
+      if (toDispatch.length >= available) break;
+    }
+
     const dispatched: string[] = [];
 
     for (const wi of toDispatch) {
@@ -88,6 +150,60 @@ export class Orchestrator {
     }
 
     return promoted;
+  }
+
+  async processSpecDrafting(projectId: string, workDir: string): Promise<string[]> {
+    if (!this.repoConfig.specs.enabled) return [];
+
+    const items = this.db.listWorkItemsByState(projectId, "spec_drafting");
+    if (items.length === 0) return [];
+
+    const adapter = this.adapters[this.repoConfig.agent.adapter];
+    if (!adapter) return [];
+
+    const engine = new SpecEngine(this.db, adapter);
+    const processed: string[] = [];
+
+    for (const wi of items) {
+      const result = await engine.draftSpec({
+        workItemId: wi.id,
+        workDir,
+        specDir: this.repoConfig.specs.directory,
+      });
+      if (!result.success) continue;
+
+      if (!this.repoConfig.specs.approval_required) {
+        engine.approveSpec(wi.id);
+      }
+      processed.push(wi.id);
+    }
+
+    return processed;
+  }
+
+  async processDecomposing(projectId: string, workDir: string): Promise<string[]> {
+    const items = this.db.listWorkItemsByState(projectId, "decomposing");
+    if (items.length === 0) return [];
+
+    const adapter = this.adapters[this.repoConfig.agent.adapter];
+    if (!adapter) return [];
+
+    const engine = new DecompositionEngine(this.db, adapter);
+    const processed: string[] = [];
+
+    for (const wi of items) {
+      const result = await engine.proposeDecomposition({
+        workItemId: wi.id,
+        workDir,
+        specsEnabled: this.repoConfig.specs.enabled,
+        specDir: this.repoConfig.specs.directory,
+      });
+      if (result.success) {
+        processed.push(wi.id);
+      }
+    }
+
+    return processed;
   }
 
   checkParentCompletion(parentWorkItemId: string): void {
@@ -154,18 +270,54 @@ export class Orchestrator {
   ): Promise<void> {
     this.transition(wi, "running");
 
+    const project = this.db.getProject(wi.project_id);
+    const workspace = this.options.workspace;
+    let executionDir = workDir;
+    let usingWorktree = false;
+    const branchName =
+      workspace?.getBranchName?.(wi.linear_identifier) ??
+      `feliz/${wi.linear_identifier}`;
+
+    if (
+      project &&
+      workspace?.createWorktree &&
+      workspace?.removeWorktree &&
+      workspace?.getBranchName
+    ) {
+      executionDir = await workspace.createWorktree(
+        project.name,
+        wi.linear_identifier,
+        project.base_branch
+      );
+      usingWorktree = true;
+
+      if (this.repoConfig.hooks.after_create && workspace.runHook) {
+        const hook = await workspace.runHook(
+          executionDir,
+          this.repoConfig.hooks.after_create
+        );
+        if (hook.exitCode !== 0) {
+          throw new Error(
+            `after_create hook failed: ${hook.stderr || hook.stdout}`
+          );
+        }
+      }
+    }
+
+    const runId = newId();
     const contextAssembler = new ContextAssembler(this.db, this.scratchpadRoot);
     const context = contextAssembler.assemble(
       wi.project_id,
       wi.id,
-      workDir
+      executionDir,
+      runId,
+      this.repoConfig.specs.enabled ? this.repoConfig.specs.directory : null
     );
-    const snapshotId = contextAssembler.createSnapshot("", wi.id, context);
+    const snapshotId = contextAssembler.createSnapshot(runId, wi.id, context);
 
     const latestRun = this.db.getLatestRunForWorkItem(wi.id);
     const attempt = latestRun ? latestRun.attempt + 1 : 1;
 
-    const runId = newId();
     this.db.insertRun({
       id: runId,
       work_item_id: wi.id,
@@ -198,13 +350,14 @@ export class Orchestrator {
       }
     );
     const promptTemplateCache = new Map<string, string>();
+    let prUrl: string | null = null;
     const result = await executor.execute({
       runId,
-      workDir,
+      workDir: executionDir,
       pipeline,
       promptRenderer: (phaseName, stepName, cycle) => {
         const template = this.getStepPromptTemplate(
-          workDir,
+          executionDir,
           pipeline,
           phaseName,
           stepName,
@@ -229,6 +382,17 @@ export class Orchestrator {
       },
       onBuiltin: async (name) => {
         if (name === "publish") {
+          const publishedPrUrl = await this.publishRun({
+            wi,
+            projectName: project?.name,
+            baseBranch: project?.base_branch,
+            branchName,
+            workDir: executionDir,
+          });
+          if (!publishedPrUrl) {
+            return false;
+          }
+          prUrl = publishedPrUrl;
           return true;
         }
         return false;
@@ -236,17 +400,20 @@ export class Orchestrator {
     });
 
     if (result.success) {
-      this.db.updateRunResult(runId, "succeeded", null, null);
+      this.db.updateRunResult(runId, "succeeded", null, prUrl);
       this.db.appendHistory({
         id: newId(),
         project_id: wi.project_id,
         work_item_id: wi.id,
         run_id: runId,
         event_type: "run.completed",
-        payload: { result: "succeeded" },
+        payload: { result: "succeeded", pr_url: prUrl },
       });
       const updatedWi = this.db.getWorkItem(wi.id)!;
       this.transition(updatedWi, "completed");
+      if (updatedWi.parent_work_item_id) {
+        this.checkParentCompletion(updatedWi.parent_work_item_id);
+      }
     } else {
       this.db.updateRunResult(
         runId,
@@ -269,6 +436,17 @@ export class Orchestrator {
       } else {
         this.transition(updatedWi, "failed");
       }
+    }
+
+    if (
+      usingWorktree &&
+      project &&
+      workspace?.removeWorktree
+    ) {
+      if (this.repoConfig.hooks.before_remove && workspace.runHook) {
+        await workspace.runHook(executionDir, this.repoConfig.hooks.before_remove);
+      }
+      await workspace.removeWorktree(project.name, wi.linear_identifier);
     }
   }
 
@@ -365,6 +543,45 @@ export class Orchestrator {
       return null;
     }
     return readFileSync(fullPath, "utf-8");
+  }
+
+  private async publishRun(params: {
+    wi: WorkItem;
+    projectName?: string;
+    baseBranch?: string;
+    branchName: string;
+    workDir: string;
+  }): Promise<string | null> {
+    if (!this.options.publisher) {
+      return null;
+    }
+    if (!params.baseBranch) {
+      return null;
+    }
+
+    const diffResult = Bun.spawnSync(["git", "diff", "--name-only", "HEAD"], {
+      cwd: params.workDir,
+    });
+    const filesChanged = diffResult.stdout
+      .toString()
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+
+    const published = await this.options.publisher.publish(
+      {
+        workDir: params.workDir,
+        branchName: params.branchName,
+        identifier: params.wi.linear_identifier,
+        title: params.wi.title,
+        linearUrl: params.wi.linear_identifier,
+        summary: `Automated implementation for ${params.wi.linear_identifier}`,
+        filesChanged,
+        testResults: null,
+      },
+      params.baseBranch
+    );
+    return published.prUrl;
   }
 
   private transition(wi: WorkItem, to: OrchestrationState): void {

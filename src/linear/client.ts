@@ -169,7 +169,13 @@ export class LinearClient {
         Authorization: this.apiKey,
       },
       body: JSON.stringify({
-        query: `mutation { issueUpdate(id: "${issueId}", input: { stateId: "${stateId}" }) { success } }`,
+        query: `mutation FelizUpdateIssueState($issueId: String!, $stateId: String!) {
+  issueUpdate(id: $issueId, input: { stateId: $stateId }) { success }
+}`,
+        variables: {
+          issueId,
+          stateId,
+        },
       }),
     });
   }
@@ -182,7 +188,13 @@ export class LinearClient {
         Authorization: this.apiKey,
       },
       body: JSON.stringify({
-        query: `mutation { commentCreate(input: { issueId: "${issueId}", body: "${body.replace(/"/g, '\\"')}" }) { success } }`,
+        query: `mutation FelizCreateComment($issueId: String!, $body: String!) {
+  commentCreate(input: { issueId: $issueId, body: $body }) { success }
+}`,
+        variables: {
+          issueId,
+          body,
+        },
       }),
     });
   }
