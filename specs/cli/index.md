@@ -23,7 +23,42 @@ feliz agent list               # List installed agents and availability
 
 feliz config validate          # Validate feliz.yml and all .feliz/ configs
 feliz config show              # Print resolved configuration
+
+feliz e2e doctor               # Validate local E2E prerequisites
+feliz e2e smoke                # Run automated E2E smoke checks
 ```
+
+## E2E Commands
+
+Feliz includes E2E harness helpers to validate environment readiness and run a preflight smoke report before full manual scenario execution.
+
+### `feliz e2e doctor`
+
+Runs prerequisite checks:
+
+- Config file existence and parseability
+- Required tools (`bun`, `gh`, `sqlite3`, `git`)
+- Agent CLI availability (`codex` or `claude`)
+- GitHub CLI authentication status
+- Environment hints (e.g. `GITHUB_TOKEN`)
+
+Returns non-zero when any critical check fails.
+
+### `feliz e2e smoke`
+
+Runs:
+
+1. `doctor` checks
+2. `feliz config validate`
+3. Optional DB table preflight checks if DB already exists
+4. Scenario checklist projection (`S1` - `S10`) as pending/blocked
+
+Returns non-zero when doctor fails or a critical smoke check fails.
+
+### Output Modes
+
+- `--json`: prints JSON report payload
+- `--out <path>`: writes JSON report to disk
 
 ## First-run experience
 

@@ -212,6 +212,19 @@ phases:
 
 ## Bring-Up Checks
 
+Run harness preflight before starting full scenarios:
+
+```bash
+bun run src/cli/index.ts e2e doctor --config /tmp/feliz-e2e/feliz.yml
+bun run src/cli/index.ts e2e smoke --config /tmp/feliz-e2e/feliz.yml
+```
+
+Use JSON output for CI/staging ingestion:
+
+```bash
+bun run src/cli/index.ts e2e smoke --config /tmp/feliz-e2e/feliz.yml --json --out /tmp/feliz-e2e-smoke-report.json
+```
+
 Start Feliz:
 
 ```bash
@@ -298,6 +311,8 @@ sqlite3 /tmp/feliz-e2e/data/db/feliz.db ".tables"
 CLI checks:
 
 ```bash
+bun run src/cli/index.ts e2e doctor --config /tmp/feliz-e2e/feliz.yml
+bun run src/cli/index.ts e2e smoke --config /tmp/feliz-e2e/feliz.yml
 bun run src/cli/index.ts run list --config /tmp/feliz-e2e/feliz.yml
 bun run src/cli/index.ts run show <run_id> --config /tmp/feliz-e2e/feliz.yml
 bun run src/cli/index.ts context history feliz-e2e-sandbox --config /tmp/feliz-e2e/feliz.yml
