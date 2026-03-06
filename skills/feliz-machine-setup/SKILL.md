@@ -33,7 +33,8 @@ Minimum interview topics:
 - Workspace root:
   - Docker default: `/data/feliz/workspaces`
   - Local default: `~/.feliz/workspaces`
-- Linear API key source: env reference or literal
+- Linear OAuth token source: env reference or literal
+- Webhook port (default: `3421`)
 - Default adapter: `claude-code` or `codex`
 - Global concurrency: `agent.max_concurrent`
 
@@ -43,7 +44,8 @@ Write central config only:
 - `feliz.yml` at selected path
 
 Config must include:
-- `linear.api_key`
+- `linear.oauth_token`
+- `webhook.port`
 - `storage` (`data_dir`, `workspace_root` as needed)
 - `agent` (`default`, `max_concurrent`)
 - `projects[]` (can be empty only if current CLI behavior allows project-add bootstrap)
@@ -52,7 +54,7 @@ Config must include:
 
 1. Preflight
 - Verify `bun`, `git`.
-- Verify Linear API key source is present.
+- Verify Linear OAuth token source is present.
 - Verify git auth mode works (SSH agent or HTTPS credential flow).
 
 2. Write central config

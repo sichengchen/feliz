@@ -5,16 +5,16 @@ Turn Linear issues into merged pull requests. Feliz is a self-hosted platform th
 ## How it works
 
 ```
-Issue appears in mapped Linear project (any state)
-  → Feliz polls and claims it
+Issue assigned to Feliz in Linear (or @Feliz mention for commands)
+  → Webhook delivers event to Feliz
   → Queues for execution
   → Creates isolated git worktree
   → Runs multi-step agent pipeline
   → Executes test/lint gates
-  → Opens pull request
+  → Agent opens pull request
 ```
 
-No dashboard needed. Linear is the input, GitHub PRs are the output. Every issue in a mapped project is picked up automatically. Monitor progress via the CLI (`feliz run list`, `feliz run show`).
+No dashboard needed. Linear is the input, GitHub PRs are the output. Assign an issue to Feliz and it gets picked up via webhook. Use `@Feliz` mentions for commands. Monitor progress via the CLI (`feliz run list`, `feliz run show`).
 
 ## Quick start
 
@@ -22,7 +22,7 @@ No dashboard needed. Linear is the input, GitHub PRs are the output. Every issue
 git clone <repo-url> && cd feliz
 bun install
 
-export LINEAR_API_KEY="lin_api_..."
+export LINEAR_OAUTH_TOKEN="lin_oauth_..."
 export GITHUB_TOKEN="ghp_..."
 
 bun run src/cli/index.ts init    # interactive setup
@@ -68,7 +68,7 @@ feliz e2e smoke                Run smoke checks
 
 Two layers:
 
-1. **Central config** (`~/.feliz/feliz.yml`) — Linear API key, storage paths, project mappings, agent defaults.
+1. **Central config** (`~/.feliz/feliz.yml`) — Linear OAuth token, webhook port, storage paths, project mappings, agent defaults.
 2. **Repo config** (`.feliz/config.yml` + `.feliz/pipeline.yml`) — agent behavior, pipeline steps, test/lint gates, hooks.
 
 See [docs/configuration.md](docs/configuration.md).

@@ -26,7 +26,8 @@ phases:
           command: "bun test"
         max_attempts: 5
       - name: create_pr
-        builtin: publish
+        agent: claude-code
+        prompt: .feliz/prompts/publish.md
 ```
 
 ## Step types
@@ -39,12 +40,7 @@ phases:
   prompt: .feliz/prompts/implement.md
 ```
 
-**Builtin step** — runs a built-in action (currently `publish` for pushing the branch and creating a GitHub PR):
-
-```yaml
-- name: create_pr
-  builtin: publish
-```
+Publishing (pushing the branch and creating a GitHub PR) is handled as a regular agent step with a prompt that instructs the agent to open the PR.
 
 ## Success conditions
 
@@ -84,7 +80,7 @@ For each step, Feliz:
 
 1. Renders the prompt template with issue, context, and cycle variables.
 2. Runs `hooks.before_run` if configured.
-3. Executes agent or builtin.
+3. Executes agent.
 4. Runs `hooks.after_run`.
 5. Evaluates success condition.
 6. Records a `StepExecution` result.
@@ -102,5 +98,5 @@ phases:
       - name: run
         prompt: WORKFLOW.md
       - name: create_pr
-        builtin: publish
+        prompt: .feliz/prompts/publish.md
 ```

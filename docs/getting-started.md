@@ -6,7 +6,7 @@ Install Feliz, configure your first project, and verify everything works.
 
 - [Bun](https://bun.sh)
 - Git
-- Linear API key ([Settings > API](https://linear.app/settings/api))
+- Linear OAuth token ([Settings > API](https://linear.app/settings/api))
 - GitHub CLI (`gh auth login`)
 - A coding agent CLI: `claude` or `codex`
 
@@ -21,7 +21,7 @@ bun install
 ## Set credentials
 
 ```bash
-export LINEAR_API_KEY="lin_api_..."
+export LINEAR_OAUTH_TOKEN="lin_oauth_..."
 export GITHUB_TOKEN="ghp_..."
 ```
 
@@ -33,7 +33,7 @@ Run the interactive wizard:
 bun run src/cli/index.ts init
 ```
 
-This prompts for your Linear API key, a project name, repo URL, and Linear project — then writes `~/.feliz/feliz.yml`.
+This prompts for your Linear OAuth token, webhook port, a project name, repo URL, and Linear project — then writes `~/.feliz/feliz.yml`.
 
 Alternatively, run `start` without a config to scaffold a template you can edit manually.
 
