@@ -7,6 +7,11 @@ describe("CLI parseArgs", () => {
     expect(cmd.command).toBe("start");
   });
 
+  test("parses 'init' command", () => {
+    const cmd = parseArgs(["init"]);
+    expect(cmd.command).toBe("init");
+  });
+
   test("parses 'stop' command", () => {
     const cmd = parseArgs(["stop"]);
     expect(cmd.command).toBe("stop");

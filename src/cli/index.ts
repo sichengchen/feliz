@@ -14,6 +14,7 @@ Usage: feliz <command> [options]
 
 Commands:
   start                    Start the Feliz daemon
+  init                     Interactive setup wizard
   stop                     Stop the daemon
   status                   Show daemon status
   config validate          Validate configuration
@@ -123,7 +124,22 @@ async function main() {
     return;
   }
 
+  if (cmd.command === "init") {
+    const { runInit } = await import("./init.ts");
+    await runInit(configPath);
+    return;
+  }
+
   if (cmd.command === "start") {
+    if (!existsSync(configPath)) {
+      const { CONFIG_TEMPLATE, writeConfigFile } = await import("../config/writer.ts");
+      writeConfigFile(configPath, CONFIG_TEMPLATE);
+      console.log(`Created config file: ${configPath}`);
+      console.log("");
+      console.log("Edit this file to set your Linear API key and project details,");
+      console.log("then run `feliz start` again.");
+      return;
+    }
     console.log("Starting Feliz daemon...");
     logger.info("Feliz starting");
     // Import and run server
