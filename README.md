@@ -4,19 +4,16 @@ Turn Linear issues into merged pull requests. Feliz is a self-hosted platform th
 
 ## How it works
 
-```
-Issue assigned to Feliz in Linear (or @Feliz mention for commands)
-  → Webhook delivers event to Feliz
-  → Queues for execution
-  → Creates isolated git worktree
-  → Runs multi-step agent pipeline
-  → Executes test/lint gates
-  → Agent opens pull request
-```
-
-No dashboard needed. Linear is the input, GitHub PRs are the output. Assign an issue to Feliz and it gets picked up via webhook. Use `@Feliz` mentions for commands. Monitor progress via the CLI (`feliz run list`, `feliz run show`).
+Assign a Linear issue to Feliz (or `@Feliz` mention) and it runs a configurable agent pipeline — implementation, testing, review, and PR creation — all handled by local coding agents in isolated git worktrees. Linear is the only UI. Monitor via CLI.
 
 ## Quick start
+
+Install the [`feliz-setup`](skills/feliz-setup/SKILL.md) and [`feliz-add-project`](skills/feliz-add-project/SKILL.md) Claude Code skills, then:
+
+1. **`feliz-setup`** — installs Feliz, configures credentials (Linear OAuth, GitHub token), writes `feliz.yml`, starts the daemon
+2. **`feliz-add-project`** — adds a repo, configures `.feliz/pipeline.yml`, prompt templates, and `WORKFLOW.md`
+
+Or manually:
 
 ```bash
 git clone <repo-url> && cd feliz
@@ -27,13 +24,6 @@ export GITHUB_TOKEN="ghp_..."
 
 bun run src/cli/index.ts init    # interactive setup
 bun run src/cli/index.ts start   # start daemon
-```
-
-Or with Docker:
-
-```bash
-cp .env.example .env   # fill in credentials
-docker compose up -d --build
 ```
 
 ## CLI
