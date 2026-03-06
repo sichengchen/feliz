@@ -4,7 +4,7 @@ Turn Linear issues into merged pull requests. Feliz is a self-hosted platform th
 
 ## How it works
 
-Assign a Linear issue to Feliz (or `@Feliz` mention) and it runs a configurable agent pipeline — implementation, testing, review, and PR creation — all handled by local coding agents in isolated git worktrees. Linear is the only UI. Monitor via CLI.
+Assign a Linear issue to Feliz (or `@Feliz` mention) and it runs a configurable agent pipeline — implementation, testing, review, and PR creation — all handled by local coding agents in isolated git worktrees.
 
 ## Quick start
 
