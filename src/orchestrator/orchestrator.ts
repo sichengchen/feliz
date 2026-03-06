@@ -1,12 +1,14 @@
 import type { Database } from "../db/database.ts";
 import type { AgentAdapter } from "../agents/adapter.ts";
-import type { RepoConfig, PipelineDefinition } from "../config/types.ts";
+import type { RepoConfig, PipelineDefinition, PipelineStep } from "../config/types.ts";
 import { PipelineExecutor } from "../pipeline/executor.ts";
 import { ContextAssembler } from "../context/assembler.ts";
 import { canTransition, nextStateForNewIssue } from "./state-machine.ts";
 import { renderTemplate } from "../config/template.ts";
 import { newId } from "../id.ts";
 import type { OrchestrationState, WorkItem } from "../domain/types.ts";
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
 
 const MAX_RETRY_BACKOFF_MS = 300000;
 const DEFAULT_MAX_RETRIES = 3;
@@ -71,6 +73,23 @@ export class Orchestrator {
     return dispatched;
   }
 
+  promoteRetryQueued(projectId: string, now: Date = new Date()): string[] {
+    const retryQueued = this.db.listWorkItemsByState(projectId, "retry_queued");
+    const promoted: string[] = [];
+
+    for (const wi of retryQueued) {
+      const retryReadyAt = this.getRetryReadyAt(wi);
+      if (retryReadyAt && retryReadyAt.getTime() > now.getTime()) {
+        continue;
+      }
+
+      this.transition(wi, "queued");
+      promoted.push(wi.id);
+    }
+
+    return promoted;
+  }
+
   checkParentCompletion(parentWorkItemId: string): void {
     const parent = this.db.getWorkItem(parentWorkItemId);
     if (!parent) return;
@@ -119,7 +138,7 @@ export class Orchestrator {
     if (wi.blocker_ids.length === 0) return true;
 
     for (const blockerId of wi.blocker_ids) {
-      const blocker = this.db.getWorkItem(blockerId);
+      const blocker = this.db.getWorkItemByLinearId(blockerId);
       if (!blocker) continue; // unknown blocker, treat as resolved
       if (!TERMINAL_STATES.includes(blocker.orchestration_state)) {
         return false;
@@ -178,13 +197,23 @@ export class Orchestrator {
         after_run: this.repoConfig.hooks.after_run,
       }
     );
+    const promptTemplateCache = new Map<string, string>();
     const result = await executor.execute({
       runId,
       workDir,
       pipeline,
       promptRenderer: (phaseName, stepName, cycle) => {
-        return renderTemplate("{{ issue.title }}\n{{ issue.description }}", {
-          project: { name: wi.project_id },
+        const template = this.getStepPromptTemplate(
+          workDir,
+          pipeline,
+          phaseName,
+          stepName,
+          promptTemplateCache
+        );
+        const project = this.db.getProject(wi.project_id);
+
+        return renderTemplate(template, {
+          project: { name: project?.name ?? wi.project_id },
           issue: {
             identifier: wi.linear_identifier,
             title: wi.title,
@@ -231,10 +260,7 @@ export class Orchestrator {
         work_item_id: wi.id,
         run_id: runId,
         event_type: "run.failed",
-        payload: {
-          failure_reason: result.failureReason,
-          attempt,
-        },
+        payload: this.buildRunFailedPayload(result.failureReason, attempt),
       });
 
       const updatedWi = this.db.getWorkItem(wi.id)!;
@@ -244,6 +270,101 @@ export class Orchestrator {
         this.transition(updatedWi, "failed");
       }
     }
+  }
+
+  private buildRunFailedPayload(
+    failureReason: string | undefined,
+    attempt: number
+  ): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+      failure_reason: failureReason,
+      attempt,
+    };
+
+    if (attempt < DEFAULT_MAX_RETRIES) {
+      const retryDelayMs = this.computeRetryDelay(attempt);
+      payload.retry_delay_ms = Math.round(retryDelayMs);
+      payload.retry_ready_at = new Date(Date.now() + retryDelayMs).toISOString();
+    }
+
+    return payload;
+  }
+
+  private getRetryReadyAt(wi: WorkItem): Date | null {
+    const latestRun = this.db.getLatestRunForWorkItem(wi.id);
+    if (!latestRun) return null;
+
+    const history = this.db.getHistory(wi.project_id, wi.id);
+    for (let idx = history.length - 1; idx >= 0; idx--) {
+      const entry = history[idx]!;
+      if (entry.event_type !== "run.failed") continue;
+      if (entry.run_id !== latestRun.id) continue;
+
+      const retryReadyAt = entry.payload.retry_ready_at;
+      if (typeof retryReadyAt !== "string") break;
+      const parsed = new Date(retryReadyAt);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+      break;
+    }
+
+    if (!latestRun.finished_at) return null;
+    const backoffMs = Math.min(
+      10000 * Math.pow(2, Math.max(0, latestRun.attempt - 1)),
+      MAX_RETRY_BACKOFF_MS
+    );
+    return new Date(latestRun.finished_at.getTime() + backoffMs);
+  }
+
+  private getStepPromptTemplate(
+    workDir: string,
+    pipeline: PipelineDefinition,
+    phaseName: string,
+    stepName: string,
+    cache: Map<string, string>
+  ): string {
+    const step = this.findPipelineStep(pipeline, phaseName, stepName);
+    const configuredPromptPath = step?.prompt ?? "WORKFLOW.md";
+    const cacheKey = configuredPromptPath;
+    const cached = cache.get(cacheKey);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const configuredPrompt = this.readPromptTemplate(workDir, configuredPromptPath);
+    if (configuredPrompt !== null) {
+      cache.set(cacheKey, configuredPrompt);
+      return configuredPrompt;
+    }
+
+    const workflowPrompt = this.readPromptTemplate(workDir, "WORKFLOW.md");
+    if (workflowPrompt !== null) {
+      cache.set("WORKFLOW.md", workflowPrompt);
+      return workflowPrompt;
+    }
+
+    const fallback = "{{ issue.title }}\n{{ issue.description }}";
+    cache.set(cacheKey, fallback);
+    return fallback;
+  }
+
+  private findPipelineStep(
+    pipeline: PipelineDefinition,
+    phaseName: string,
+    stepName: string
+  ): PipelineStep | undefined {
+    const phase = pipeline.phases.find((p) => p.name === phaseName);
+    if (!phase) return undefined;
+    return phase.steps.find((s) => s.name === stepName);
+  }
+
+  private readPromptTemplate(workDir: string, promptPath: string): string | null {
+    const fullPath = join(workDir, promptPath);
+    if (!existsSync(fullPath)) {
+      return null;
+    }
+    return readFileSync(fullPath, "utf-8");
   }
 
   private transition(wi: WorkItem, to: OrchestrationState): void {

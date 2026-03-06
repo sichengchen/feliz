@@ -3,7 +3,8 @@ import { Orchestrator } from "../../src/orchestrator/orchestrator.ts";
 import { Database } from "../../src/db/database.ts";
 import type { AgentAdapter } from "../../src/agents/adapter.ts";
 import type { RepoConfig, PipelineDefinition } from "../../src/config/types.ts";
-import { existsSync, unlinkSync, mkdirSync, rmSync } from "fs";
+import { existsSync, unlinkSync, mkdirSync, rmSync, writeFileSync } from "fs";
+import { join } from "path";
 
 const TEST_DB = "/tmp/feliz-orch-test.db";
 const TEST_SCRATCH = "/tmp/feliz-orch-scratch";
@@ -51,6 +52,24 @@ function makeFailAdapter(): AgentAdapter {
       stderr: "error",
       filesChanged: [],
     })),
+    cancel: mock(async () => {}),
+  };
+}
+
+function makeCapturingAdapter(calls: string[]): AgentAdapter {
+  return {
+    name: "test-agent",
+    isAvailable: async () => true,
+    execute: mock(async (params: { prompt: string }) => {
+      calls.push(params.prompt);
+      return {
+        status: "succeeded" as const,
+        exitCode: 0,
+        stdout: "done",
+        stderr: "",
+        filesChanged: [],
+      };
+    }),
     cancel: mock(async () => {}),
   };
 }
@@ -215,6 +234,112 @@ describe("Orchestrator", () => {
     expect(wi!.orchestration_state).toBe("completed");
   });
 
+  test("does not dispatch queued work item when blocker linear issue is not terminal", async () => {
+    db.upsertWorkItem({
+      id: "wi-blocker",
+      linear_id: "lin-blocker",
+      linear_identifier: "T-2",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Blocker",
+      description: "",
+      state: "In Progress",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "running",
+    });
+
+    db.upsertWorkItem({
+      id: "wi-blocked",
+      linear_id: "lin-blocked",
+      linear_identifier: "T-3",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Blocked item",
+      description: "",
+      state: "Todo",
+      priority: 2,
+      labels: [],
+      blocker_ids: ["lin-blocker"],
+      orchestration_state: "queued",
+    });
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeSuccessAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+
+    const dispatched = await orch.dispatchQueued(
+      "proj-1",
+      makeSimplePipeline(),
+      TEST_WORK_DIR
+    );
+
+    expect(dispatched).toEqual([]);
+    const blocked = db.getWorkItem("wi-blocked");
+    expect(blocked!.orchestration_state).toBe("queued");
+  });
+
+  test("renders step prompt from configured template path", async () => {
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "T-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Prompt title",
+      description: "Prompt body",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+
+    const promptPath = join(TEST_WORK_DIR, ".feliz", "prompts");
+    mkdirSync(promptPath, { recursive: true });
+    writeFileSync(
+      join(promptPath, "write_code.md"),
+      "Issue {{ issue.identifier }}: {{ issue.title }}\n{{ issue.description }}",
+      "utf-8"
+    );
+
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "implement",
+          steps: [
+            {
+              name: "write_code",
+              agent: "test-agent",
+              prompt: ".feliz/prompts/write_code.md",
+              success: { always: true },
+            },
+          ],
+        },
+      ],
+    };
+
+    const prompts: string[] = [];
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeCapturingAdapter(prompts) },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+
+    await orch.dispatchQueued("proj-1", pipeline, TEST_WORK_DIR);
+
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain("Issue T-1: Prompt title");
+    expect(prompts[0]).toContain("Prompt body");
+  });
+
   test("respects max_concurrent limit", async () => {
     // Create 2 items
     for (let i = 1; i <= 2; i++) {
@@ -369,6 +494,108 @@ describe("Orchestrator", () => {
     const eventTypes = history.map((h) => h.event_type);
     expect(eventTypes).toContain("run.started");
     expect(eventTypes).toContain("run.failed");
+  });
+
+  test("promotes retry_queued to queued when retry backoff elapsed", () => {
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "T-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Retry item",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "retry_queued",
+    });
+
+    db.insertRun({
+      id: "run-1",
+      work_item_id: "wi-1",
+      attempt: 1,
+      current_phase: "execute",
+      current_step: "run",
+      context_snapshot_id: "snap-1",
+    });
+    db.updateRunResult("run-1", "failed", "error", null);
+    db.appendHistory({
+      id: "hist-1",
+      project_id: "proj-1",
+      work_item_id: "wi-1",
+      run_id: "run-1",
+      event_type: "run.failed",
+      payload: {
+        attempt: 1,
+        retry_ready_at: "2020-01-01T00:00:00.000Z",
+      },
+    });
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeSuccessAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+
+    orch.promoteRetryQueued("proj-1", new Date("2020-01-01T00:00:01.000Z"));
+
+    const wi = db.getWorkItem("wi-1");
+    expect(wi!.orchestration_state).toBe("queued");
+  });
+
+  test("keeps retry_queued when retry backoff has not elapsed", () => {
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "T-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Retry item",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "retry_queued",
+    });
+
+    db.insertRun({
+      id: "run-1",
+      work_item_id: "wi-1",
+      attempt: 1,
+      current_phase: "execute",
+      current_step: "run",
+      context_snapshot_id: "snap-1",
+    });
+    db.updateRunResult("run-1", "failed", "error", null);
+    db.appendHistory({
+      id: "hist-1",
+      project_id: "proj-1",
+      work_item_id: "wi-1",
+      run_id: "run-1",
+      event_type: "run.failed",
+      payload: {
+        attempt: 1,
+        retry_ready_at: "2020-01-01T00:00:10.000Z",
+      },
+    });
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeSuccessAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+
+    orch.promoteRetryQueued("proj-1", new Date("2020-01-01T00:00:01.000Z"));
+
+    const wi = db.getWorkItem("wi-1");
+    expect(wi!.orchestration_state).toBe("retry_queued");
   });
 
   test("transitions to failed when pipeline fails and attempt >= max", async () => {

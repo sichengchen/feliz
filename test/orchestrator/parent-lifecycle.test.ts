@@ -255,7 +255,7 @@ describe("Blocker enforcement", () => {
       state: "Todo",
       priority: 1,
       labels: [],
-      blocker_ids: ["blocker-1"],
+      blocker_ids: ["lb"],
       orchestration_state: "queued",
     });
 
@@ -306,7 +306,7 @@ describe("Blocker enforcement", () => {
       state: "Todo",
       priority: 1,
       labels: [],
-      blocker_ids: ["blocker-1"],
+      blocker_ids: ["lb"],
       orchestration_state: "queued",
     });
 

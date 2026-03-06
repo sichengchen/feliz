@@ -144,6 +144,9 @@ export class FelizServer {
           orchestrator.processNewIssue(wi.id);
         }
 
+        // Promote retry_queued items whose backoff has elapsed
+        orchestrator.promoteRetryQueued(project.id);
+
         // Dispatch queued items
         const workDir = this.workspace.getRepoPath(projConfig.name);
         if (existsSync(workDir)) {
