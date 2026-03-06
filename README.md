@@ -16,7 +16,7 @@ You can use the [`feliz-setup`](skills/feliz-setup/SKILL.md) and [`feliz-add-pro
 Or manually:
 
 ```bash
-git clone <repo-url> && cd feliz
+git clone git@github.com:sichengchen/feliz.git && cd feliz
 bun install
 
 export LINEAR_OAUTH_TOKEN="lin_oauth_..."
