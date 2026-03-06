@@ -40,6 +40,21 @@ function makeRepoConfig(overrides: Partial<RepoConfig> = {}): RepoConfig {
   };
 }
 
+function makeFailAdapter(): AgentAdapter {
+  return {
+    name: "test-agent",
+    isAvailable: async () => true,
+    execute: mock(async () => ({
+      status: "failed" as const,
+      exitCode: 1,
+      stdout: "",
+      stderr: "error",
+      filesChanged: [],
+    })),
+    cancel: mock(async () => {}),
+  };
+}
+
 function makeSimplePipeline(): PipelineDefinition {
   return {
     phases: [
@@ -50,6 +65,22 @@ function makeSimplePipeline(): PipelineDefinition {
             name: "run",
             agent: "test-agent",
             success: { always: true },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function makeFailablePipeline(): PipelineDefinition {
+  return {
+    phases: [
+      {
+        name: "execute",
+        steps: [
+          {
+            name: "run",
+            agent: "test-agent",
           },
         ],
       },
@@ -268,5 +299,281 @@ describe("Orchestrator", () => {
     expect(delay1).toBeLessThanOrEqual(12000); // +jitter up to 2000
     expect(delay2).toBeGreaterThanOrEqual(20000);
     expect(delay3).toBeGreaterThanOrEqual(40000);
+  });
+
+  test("transitions new issue to decomposing when epic label", () => {
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "T-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Epic feature",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: ["epic"],
+      blocker_ids: [],
+      orchestration_state: "unclaimed",
+    });
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeSuccessAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+    orch.processNewIssue("wi-1");
+
+    const wi = db.getWorkItem("wi-1");
+    expect(wi!.orchestration_state).toBe("decomposing");
+  });
+
+  test("transitions to retry_queued when pipeline fails and attempt < max", async () => {
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "T-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Test",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+
+    const adapter = makeFailAdapter();
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": adapter },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+
+    await orch.dispatchQueued("proj-1", makeFailablePipeline(), TEST_WORK_DIR);
+
+    const wi = db.getWorkItem("wi-1");
+    expect(wi!.orchestration_state).toBe("retry_queued");
+
+    const runs = db.listRuns();
+    const run = runs.find((r) => r.work_item_id === "wi-1");
+    expect(run).toBeDefined();
+    expect(run!.result).toBe("failed");
+
+    const history = db.getHistory("proj-1", "wi-1");
+    const eventTypes = history.map((h) => h.event_type);
+    expect(eventTypes).toContain("run.started");
+    expect(eventTypes).toContain("run.failed");
+  });
+
+  test("transitions to failed when pipeline fails and attempt >= max", async () => {
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "T-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Test",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+
+    // Insert 2 prior failed runs so the next attempt will be 3
+    db.insertRun({
+      id: "run-1",
+      work_item_id: "wi-1",
+      attempt: 1,
+      current_phase: "x",
+      current_step: "x",
+      context_snapshot_id: "",
+    });
+    db.updateRunResult("run-1", "failed", "err", null);
+    db.insertRun({
+      id: "run-2",
+      work_item_id: "wi-1",
+      attempt: 2,
+      current_phase: "x",
+      current_step: "x",
+      context_snapshot_id: "",
+    });
+    db.updateRunResult("run-2", "failed", "err", null);
+
+    const adapter = makeFailAdapter();
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": adapter },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+
+    await orch.dispatchQueued("proj-1", makeFailablePipeline(), TEST_WORK_DIR);
+
+    const wi = db.getWorkItem("wi-1");
+    expect(wi!.orchestration_state).toBe("failed");
+  });
+
+  test("records run.started and run.completed history events on success", async () => {
+    db.upsertWorkItem({
+      id: "wi-1",
+      linear_id: "l1",
+      linear_identifier: "T-1",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Test",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+
+    const adapter = makeSuccessAdapter();
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": adapter },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+
+    await orch.dispatchQueued("proj-1", makeSimplePipeline(), TEST_WORK_DIR);
+
+    const history = db.getHistory("proj-1", "wi-1");
+    const eventTypes = history.map((h) => h.event_type);
+    expect(eventTypes).toContain("run.started");
+    expect(eventTypes).toContain("run.completed");
+  });
+
+  test("checkParentCompletion completes parent when all children completed", () => {
+    db.upsertWorkItem({
+      id: "parent-1",
+      linear_id: "lp",
+      linear_identifier: "T-P",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Parent",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "decompose_review",
+    });
+
+    db.upsertWorkItem({
+      id: "child-1",
+      linear_id: "lc1",
+      linear_identifier: "T-C1",
+      project_id: "proj-1",
+      parent_work_item_id: "parent-1",
+      title: "Child 1",
+      description: "",
+      state: "Done",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "completed",
+    });
+
+    db.upsertWorkItem({
+      id: "child-2",
+      linear_id: "lc2",
+      linear_identifier: "T-C2",
+      project_id: "proj-1",
+      parent_work_item_id: "parent-1",
+      title: "Child 2",
+      description: "",
+      state: "Done",
+      priority: 2,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "completed",
+    });
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeSuccessAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+    orch.checkParentCompletion("parent-1");
+
+    const parent = db.getWorkItem("parent-1");
+    expect(parent!.orchestration_state).toBe("completed");
+
+    const history = db.getHistory("proj-1", "parent-1");
+    const eventTypes = history.map((h) => h.event_type);
+    expect(eventTypes).toContain("parent.auto_completed");
+  });
+
+  test("checkParentCompletion does NOT complete parent when children still running", () => {
+    db.upsertWorkItem({
+      id: "parent-1",
+      linear_id: "lp",
+      linear_identifier: "T-P",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Parent",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "decompose_review",
+    });
+
+    db.upsertWorkItem({
+      id: "child-1",
+      linear_id: "lc1",
+      linear_identifier: "T-C1",
+      project_id: "proj-1",
+      parent_work_item_id: "parent-1",
+      title: "Child 1",
+      description: "",
+      state: "Done",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "completed",
+    });
+
+    db.upsertWorkItem({
+      id: "child-2",
+      linear_id: "lc2",
+      linear_identifier: "T-C2",
+      project_id: "proj-1",
+      parent_work_item_id: "parent-1",
+      title: "Child 2",
+      description: "",
+      state: "InProgress",
+      priority: 2,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "running",
+    });
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeSuccessAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+    orch.checkParentCompletion("parent-1");
+
+    const parent = db.getWorkItem("parent-1");
+    expect(parent!.orchestration_state).toBe("decompose_review");
   });
 });
