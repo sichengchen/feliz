@@ -143,16 +143,18 @@ async function main() {
         db.close();
         return;
       }
-      console.log("ID            Work Item   Status     Phase/Step         Started");
-      console.log("─".repeat(75));
+      console.log("ID            Work Item   Project        Status     Phase/Step         Started");
+      console.log("─".repeat(90));
       for (const r of runs) {
         const wi = db.getWorkItem(r.work_item_id);
         const identifier = wi?.linear_identifier ?? r.work_item_id.slice(0, 8);
+        const project = wi ? db.getProject(wi.project_id) : null;
+        const projName = project?.name ?? "-";
         const status = r.result ?? "running";
         const phase = `${r.current_phase}/${r.current_step}`;
         const started = r.started_at.toISOString().slice(0, 19).replace("T", " ");
         console.log(
-          `${r.id.padEnd(14)}${identifier.padEnd(12)}${status.padEnd(11)}${phase.padEnd(19)}${started}`
+          `${r.id.padEnd(14)}${identifier.padEnd(12)}${projName.padEnd(15)}${status.padEnd(11)}${phase.padEnd(19)}${started}`
         );
       }
       db.close();

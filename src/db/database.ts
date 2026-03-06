@@ -49,6 +49,9 @@ export class Database {
         FOREIGN KEY (project_id) REFERENCES projects(id)
       );
 
+      CREATE INDEX IF NOT EXISTS idx_work_items_linear_identifier
+        ON work_items(linear_identifier);
+
       CREATE TABLE IF NOT EXISTS runs (
         id TEXT PRIMARY KEY,
         work_item_id TEXT NOT NULL,
