@@ -39,7 +39,7 @@ phases:
   prompt: .feliz/prompts/implement.md
 ```
 
-**Builtin step** — runs a built-in action (currently `publish` for PR creation):
+**Builtin step** — runs a built-in action (currently `publish` for pushing the branch and creating a GitHub PR):
 
 ```yaml
 - name: create_pr

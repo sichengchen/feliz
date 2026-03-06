@@ -12,10 +12,9 @@ Issue appears in mapped Linear project (any state)
   → Runs multi-step agent pipeline
   → Executes test/lint gates
   → Opens pull request
-  → Updates Linear with results
 ```
 
-No dashboard needed. Linear is the interface. Every issue in a mapped project is picked up automatically.
+No dashboard needed. Linear is the input, GitHub PRs are the output. Every issue in a mapped project is picked up automatically. Monitor progress via the CLI (`feliz run list`, `feliz run show`).
 
 ## Quick start
 

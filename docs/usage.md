@@ -43,7 +43,6 @@ A successful run produces:
 
 - A pull request on the target repo
 - A PR URL in `run show` output
-- Status updates posted to the Linear issue
 
 ## Handle failures
 
