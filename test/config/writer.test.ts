@@ -5,8 +5,11 @@ import {
   CONFIG_TEMPLATE,
   generateConfig,
   writeConfigFile,
+  generateRepoConfig,
+  generatePipelineYml,
+  generateWorkflowMd,
 } from "../../src/config/writer.ts";
-import { loadFelizConfig } from "../../src/config/loader.ts";
+import { loadFelizConfig, loadRepoConfig, loadPipelineConfig } from "../../src/config/loader.ts";
 
 const TEST_DIR = "/tmp/feliz-writer-test";
 
@@ -91,5 +94,62 @@ describe("writeConfigFile", () => {
     writeConfigFile(configPath, CONFIG_TEMPLATE);
     expect(existsSync(configPath)).toBe(true);
     expect(readFileSync(configPath, "utf-8")).toBe(CONFIG_TEMPLATE);
+  });
+});
+
+describe("generateRepoConfig", () => {
+  test("round-trips through loadRepoConfig", () => {
+    const yaml = generateRepoConfig({
+      agentAdapter: "claude-code",
+      specsEnabled: true,
+      specsDirectory: "docs/specs",
+      testCommand: "bun test",
+      lintCommand: "bun run lint",
+    });
+    const config = loadRepoConfig(yaml);
+    expect(config.agent.adapter).toBe("claude-code");
+    expect(config.specs.enabled).toBe(true);
+    expect(config.specs.directory).toBe("docs/specs");
+    expect(config.gates.test_command).toBe("bun test");
+    expect(config.gates.lint_command).toBe("bun run lint");
+  });
+
+  test("handles minimal answers with defaults", () => {
+    const yaml = generateRepoConfig({
+      agentAdapter: "claude-code",
+      specsEnabled: false,
+    });
+    const config = loadRepoConfig(yaml);
+    expect(config.agent.adapter).toBe("claude-code");
+    expect(config.specs.enabled).toBe(false);
+    expect(config.gates.test_command).toBeUndefined();
+  });
+});
+
+describe("generatePipelineYml", () => {
+  test("round-trips through loadPipelineConfig", () => {
+    const yaml = generatePipelineYml("npm test");
+    const pipeline = loadPipelineConfig(yaml);
+    expect(pipeline.phases).toHaveLength(1);
+    expect(pipeline.phases[0]!.name).toBe("execute");
+    expect(pipeline.phases[0]!.steps[0]!.name).toBe("run");
+    expect(pipeline.phases[0]!.steps[0]!.success!.command).toBe("npm test");
+    expect(pipeline.phases[0]!.steps[1]!.builtin).toBe("publish");
+  });
+
+  test("omits success condition without test command", () => {
+    const yaml = generatePipelineYml();
+    const pipeline = loadPipelineConfig(yaml);
+    expect(pipeline.phases[0]!.steps[0]!.success).toBeUndefined();
+  });
+});
+
+describe("generateWorkflowMd", () => {
+  test("contains template variables", () => {
+    const md = generateWorkflowMd();
+    expect(md).toContain("{{ project.name }}");
+    expect(md).toContain("{{ issue.identifier }}");
+    expect(md).toContain("{{ issue.title }}");
+    expect(md).toContain("{{ issue.description }}");
   });
 });
