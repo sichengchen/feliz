@@ -1,0 +1,22 @@
+services:
+  feliz:
+    build: .
+    env_file: .env
+    volumes:
+      - ${SSH_AUTH_SOCK}:/ssh-agent:ro
+      - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+      - feliz-data:/data/feliz
+      - feliz-agent-creds:/root
+    environment:
+      - SSH_AUTH_SOCK=/ssh-agent
+      - LINEAR_API_KEY
+      - GITHUB_TOKEN
+      - GIT_AUTHOR_NAME
+      - GIT_AUTHOR_EMAIL
+      - ANTHROPIC_API_KEY
+      - OPENAI_API_KEY
+    restart: unless-stopped
+
+volumes:
+  feliz-data:
+  feliz-agent-creds:

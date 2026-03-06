@@ -16,32 +16,18 @@ This guide walks you through installing Feliz, connecting it to Linear, and proc
 
 ### Option A: Docker (recommended for production)
 
-1. Create a `docker-compose.yml`:
-
-```yaml
-services:
-  feliz:
-    image: feliz
-    volumes:
-      - ${SSH_AUTH_SOCK}:/ssh-agent:ro
-      - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
-      - feliz-data:/data/feliz
-      - feliz-agent-creds:/root
-    environment:
-      - SSH_AUTH_SOCK=/ssh-agent
-      - LINEAR_API_KEY
-      - GITHUB_TOKEN
-      - GIT_AUTHOR_NAME=Feliz Bot
-      - GIT_AUTHOR_EMAIL=feliz@example.com
-volumes:
-  feliz-data:
-  feliz-agent-creds:
-```
-
-2. Start the container:
+1. Clone the repo and configure credentials:
 
 ```bash
-docker compose up -d
+git clone <repo-url> && cd feliz
+cp .env.example .env
+# Edit .env with your LINEAR_API_KEY, GITHUB_TOKEN, etc.
+```
+
+2. Build and start the container:
+
+```bash
+docker compose up -d --build
 ```
 
 3. Run the setup wizard:

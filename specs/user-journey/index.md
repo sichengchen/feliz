@@ -10,34 +10,14 @@ This document traces how a developer/team uses Feliz throughout the entire lifec
 
 ### Option A: Docker (recommended)
 
-1. **Start the container**:
-   ```yaml
-   # docker-compose.yml
-   services:
-     feliz:
-       image: feliz
-       volumes:
-         - ${SSH_AUTH_SOCK}:/ssh-agent:ro
-         - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
-         - feliz-data:/data/feliz
-         - feliz-agent-creds:/root  # persists ~/.claude/, ~/.codex/ across restarts
-       environment:
-         - SSH_AUTH_SOCK=/ssh-agent
-         - LINEAR_API_KEY
-         - GITHUB_TOKEN
-         - GIT_AUTHOR_NAME=Feliz Bot
-         - GIT_AUTHOR_EMAIL=feliz@example.com
-         # Agent auth: use OAuth via `feliz init` (recommended)
-         # or provide API keys as fallback:
-         # - ANTHROPIC_API_KEY
-         # - OPENAI_API_KEY
-   volumes:
-     feliz-data:
-     feliz-agent-creds:
-   ```
+1. **Clone, configure, and start**:
    ```bash
-   docker compose up -d
+   git clone <repo-url> && cd feliz
+   cp .env.example .env
+   # Edit .env with your LINEAR_API_KEY, GITHUB_TOKEN, etc.
+   docker compose up -d --build
    ```
+   The `docker-compose.yml` uses `build: .` to build the image locally. The `.env.example` file documents all available environment variables. Agent API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) are optional — prefer OAuth via `feliz init`.
    The Feliz Docker image ships with `git`, `openssh-client`, and `bun`. It does **not** bundle coding agent CLIs (they are proprietary/separately licensed).
 
 2. **Run the setup wizard** (inside the container):

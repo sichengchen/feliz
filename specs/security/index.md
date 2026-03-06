@@ -55,21 +55,26 @@ Feliz runs in Docker and needs git access for cloning repos and pushing branches
 **Recommended approach**: Mount the host SSH agent socket into the container. This keeps private keys on the host and avoids copying secrets into the container image.
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml (uses build: . and env_file: .env)
 services:
   feliz:
-    image: feliz
+    build: .
+    env_file: .env
     volumes:
       - ${SSH_AUTH_SOCK}:/ssh-agent:ro
       - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
-      - ./data:/data/feliz
+      - feliz-data:/data/feliz
+      - feliz-agent-creds:/root
     environment:
       - SSH_AUTH_SOCK=/ssh-agent
       - LINEAR_API_KEY
       - GITHUB_TOKEN
       - ANTHROPIC_API_KEY
-      - GIT_AUTHOR_NAME=Feliz Bot
-      - GIT_AUTHOR_EMAIL=feliz@example.com
+      - GIT_AUTHOR_NAME
+      - GIT_AUTHOR_EMAIL
+volumes:
+  feliz-data:
+  feliz-agent-creds:
 ```
 
 **Alternative approaches**:

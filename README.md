@@ -57,35 +57,21 @@ Use [`feliz-setup`](skills/feliz-setup/SKILL.md) as a router when you want the s
 ### Quick start (Docker)
 
 ```bash
-# Start Feliz
-docker compose up -d
+# Clone the repo
+git clone <repo-url> && cd feliz
+
+# Copy and fill in your credentials
+cp .env.example .env
+# Edit .env with your LINEAR_API_KEY, GITHUB_TOKEN, etc.
+
+# Build and start Feliz
+docker compose up -d --build
 
 # Run the setup wizard
 docker compose exec feliz feliz init
 
 # Add your first project
 docker compose exec feliz feliz project add
-```
-
-```yaml
-# docker-compose.yml
-services:
-  feliz:
-    image: feliz
-    volumes:
-      - ${SSH_AUTH_SOCK}:/ssh-agent:ro
-      - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
-      - feliz-data:/data/feliz
-      - feliz-agent-creds:/root
-    environment:
-      - SSH_AUTH_SOCK=/ssh-agent
-      - LINEAR_API_KEY
-      - GITHUB_TOKEN
-      - GIT_AUTHOR_NAME=Feliz Bot
-      - GIT_AUTHOR_EMAIL=feliz@example.com
-volumes:
-  feliz-data:
-  feliz-agent-creds:
 ```
 
 ### Quick start (local)
