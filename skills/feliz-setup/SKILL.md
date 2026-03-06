@@ -1,68 +1,89 @@
 ---
 name: feliz-setup
-description: Use this skill when setting up Feliz for the first time or repairing local setup. It guides environment checks, `feliz init`, config validation, daemon start, project add/remove, and common git auth/workspace pitfalls.
+description: Use this skill when setting up or repairing Feliz. The agent must run `/interview` first, collect user preferences, and write correct in-repo `feliz.yml` and `.feliz/*` configs tailored to those preferences.
 ---
 
 # Feliz Setup
 
-Use this workflow to set up Feliz correctly and avoid common local failures.
+Use this skill to configure Feliz from user preferences, not from blind defaults.
 
-## When to use
+## Hard requirement
 
-- Fresh Feliz install
-- Local environment not starting
-- `project add` / clone / auth issues
-- Rebuilding setup after config drift
+Before editing any config, run `/interview` and collect preferences.
 
-## Setup workflow
+Minimum interview topics:
+- Deployment mode: local CLI or Docker
+- Config location: repository-local `./feliz.yml` (default for this skill) or home path
+- Linear API key source: env var reference or literal key
+- Git auth mode: SSH or HTTPS token/credential helper
+- Default agent adapter: `claude-code` or `codex`
+- Repo workflow defaults:
+  - `specs.enabled`
+  - `specs.directory`
+  - `specs.approval_required`
+  - `gates.test_command`
+  - `gates.lint_command`
+- Project mappings to register in `projects[]`:
+  - project `name`
+  - git `repo`
+  - Linear `linear_project`
+  - base `branch`
 
-1. Preflight checks
-- Ensure required tools are present: `bun`, `git`.
-- Confirm access credentials:
-  - `LINEAR_API_KEY` for Linear API.
-  - Git auth for repository access.
-- Choose git transport intentionally:
-  - SSH URL (`git@github.com:...`) uses SSH agent.
-  - HTTPS URL (`https://github.com/...`) uses git credential manager / `gh` auth.
+If any required field is missing, continue the interview before generating files.
 
-2. Initialize Feliz config
-- Run `feliz init` (or `bun run src/cli/index.ts init` in source checkout).
-- Provide Linear API key and first project mapping.
-- If config already exists, do not overwrite; inspect first.
+## Output contract
 
-3. Validate configuration
-- Run `feliz config validate`.
-- Run `feliz config show` and confirm:
-  - `linear.api_key` resolves correctly.
-  - `storage.workspace_root` is writable.
-  - Project entries are correct.
+After interview, write appropriate configs in the repository.
 
-4. Start and verify daemon
-- Run `feliz start`.
-- Run `feliz status` and verify daemon + project count.
+Required files:
+- `feliz.yml` (or user-selected path)
+- `.feliz/config.yml`
+- `.feliz/pipeline.yml`
+- `WORKFLOW.md`
 
-5. Add project safely
-- Run `feliz project add`.
-- If repo already contains `.feliz/config.yml`, skip scaffold and use existing repo config.
-- If scaffold is needed, generate default `.feliz` files and optionally commit/push.
+Config rules:
+- Prefer env var reference for secrets, e.g. `linear.api_key: $LINEAR_API_KEY`.
+- Match `agent.default` and repo `agent.adapter` to user choice.
+- Include only necessary fields; avoid unrelated options.
+- Keep YAML valid and schema-aligned with Feliz specs.
+- Use test/lint/spec settings from interview answers.
 
-## Repair workflow
+## Recommended generation flow
 
-1. `project add` fails because repo path already exists
-- Remove project cleanly first: `feliz project remove <project-name>`.
-- Confirm workspace path is deleted under `~/.feliz/workspaces/<project-name>`.
-- Retry `feliz project add`.
+1. Preflight
+- Verify `bun` and `git` are installed.
+- Verify chosen auth mode is workable (SSH agent or HTTPS credentials).
 
-2. Clone/push uses wrong auth method
-- If using SSH URL, ensure SSH agent is available and key has repo access.
-- If using HTTPS URL, ensure credentials are configured (`gh auth login` / credential helper).
+2. Write central config
+- Generate `feliz.yml` with:
+  - `linear`
+  - `storage` (if user specified)
+  - `agent`
+  - `projects[]` from interview
 
-3. Config validation fails
-- Fix schema errors in `feliz.yml` first.
-- Re-run `feliz config validate` until clean.
+3. Write repo config
+- Generate `.feliz/config.yml` from interview preferences.
+- Generate `.feliz/pipeline.yml` using a sensible default execute pipeline.
+- Generate `WORKFLOW.md` with standard Feliz prompt structure.
 
-## Execution guardrails
+4. Validate
+- Run `bun run src/cli/index.ts --config <path> config validate`.
+- Fix any reported schema/format issues immediately.
 
-- Prefer deterministic CLI checks over assumptions.
-- Stop on first failing prerequisite and fix it before continuing.
-- Keep changes minimal and focused on setup correctness.
+5. Confirm and proceed
+- Summarize what was written and why it matches user preferences.
+- Offer next commands: `start`, `status`, `project add/remove`.
+
+## Repair mode
+
+When fixing an existing setup:
+- Read current config first.
+- Preserve intentional user values unless they conflict with explicit interview answers.
+- On `project add` path collisions, remove stale workspace path safely after `project remove`.
+
+## Guardrails
+
+- Do not skip `/interview`.
+- Do not rely on one-size-fits-all templates.
+- Do not leave partially written config files.
+- Prefer deterministic CLI validation over assumptions.
