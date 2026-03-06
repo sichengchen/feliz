@@ -156,6 +156,8 @@ From repo root:
 ```bash
 bun run e2e:doctor
 bun run e2e:smoke
+bun run e2e:real
 ```
 
 `e2e:smoke` runs `scripts/e2e-smoke.sh`.
+`e2e:real` runs `scripts/e2e-real.sh`.

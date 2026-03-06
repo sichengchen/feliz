@@ -76,6 +76,19 @@ What it runs:
 1. `feliz e2e doctor`
 2. `feliz e2e smoke --json --out ...`
 
+## Real E2E Automation
+
+After `gh auth login`, agent login, and creating a Linear project (default: `Feliz E2E Test`), run:
+
+```bash
+cp scripts/e2e.env.example scripts/e2e.env
+# edit scripts/e2e.env
+
+bash scripts/e2e-real.sh --env-file scripts/e2e.env
+```
+
+`scripts/e2e-real.sh` creates/clones a GitHub sandbox repo, seeds repo files, writes E2E config, runs smoke checks, and prints the exact `start` command.
+
 ## CLI Overview
 
 ```text

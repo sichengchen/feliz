@@ -81,19 +81,31 @@ bun run src/cli/index.ts e2e doctor
 bun run src/cli/index.ts e2e smoke
 ```
 
-## 7) Use the repo smoke helper script
+## 7) One-command real E2E bootstrap (recommended for real Linear/GitHub)
+
+Prerequisite: `gh auth login` and an existing Linear project (default name `Feliz E2E Test`).
 
 ```bash
 cp scripts/e2e.env.example scripts/e2e.env
 # edit scripts/e2e.env
 
-bash scripts/e2e-smoke.sh \
-  --env-file scripts/e2e.env \
-  --config /tmp/feliz-e2e/feliz.yml \
-  --report /tmp/feliz-e2e-smoke-report.json
+bash scripts/e2e-real.sh --env-file scripts/e2e.env
 ```
 
-## 8) Operate through Linear
+This script automates:
+
+1. GitHub sandbox repo creation/clone
+2. Sandbox file seeding (`package.json`, tests, `.feliz/`, `WORKFLOW.md`)
+3. E2E config generation
+4. Smoke preflight execution
+
+## 8) Use smoke-only helper (optional)
+
+```bash
+bash scripts/e2e-smoke.sh --env-file scripts/e2e.env
+```
+
+## 9) Operate through Linear
 
 Issue interaction is driven from Linear (state changes/comments/labels). CLI is operational and inspection tooling.
 

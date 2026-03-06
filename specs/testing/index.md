@@ -212,6 +212,24 @@ phases:
 
 ## Bring-Up Checks
 
+For real Linear/GitHub environments, prefer the automated bootstrap script:
+
+```bash
+cp scripts/e2e.env.example scripts/e2e.env
+# fill real credentials + owner/project defaults
+bash scripts/e2e-real.sh --env-file scripts/e2e.env
+```
+
+Behavior:
+
+1. Ensures the GitHub sandbox repo exists and is cloned
+2. Seeds a minimal Bun repo plus `.feliz/` config/pipeline
+3. Validates target Linear project exists
+4. Writes `/tmp/feliz-e2e/feliz.yml`
+5. Runs smoke harness and emits JSON report
+
+Manual smoke commands remain available for partial/diagnostic runs:
+
 Run harness preflight before starting full scenarios:
 
 ```bash
