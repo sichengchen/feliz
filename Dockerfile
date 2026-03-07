@@ -46,9 +46,9 @@ RUN mkdir -p /home/feliz/.ssh && \
     chmod 700 /home/feliz/.ssh && \
     chown -R feliz:feliz /home/feliz/.ssh
 
-# Create data and config dirs owned by feliz
-RUN mkdir -p /data/feliz /home/feliz/.feliz && \
-    chown -R feliz:feliz /data/feliz /home/feliz/.feliz
+# Create data, config, and bun global dirs owned by feliz
+RUN mkdir -p /data/feliz /home/feliz/.feliz /home/feliz/.bun && \
+    chown -R feliz:feliz /data/feliz /home/feliz/.feliz /home/feliz/.bun
 
 WORKDIR /app
 
