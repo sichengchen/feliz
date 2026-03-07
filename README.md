@@ -6,6 +6,17 @@ Turn Linear issues into merged pull requests. Feliz is a self-hosted platform th
 
 Assign a Linear issue to Feliz (or `@Feliz` mention) and it runs a configurable agent pipeline — implementation, testing, review, and PR creation — all handled by local coding agents in isolated git worktrees.
 
+## Prerequisites
+
+- [Bun](https://bun.sh)
+- Git
+- At least one coding agent CLI:
+  - [Claude Code](https://claude.ai/download): `curl -fsSL https://claude.ai/install.sh | bash`
+  - [Codex](https://github.com/openai/codex): `npm install -g @openai/codex`
+- [GitHub CLI](https://cli.github.com/) (`gh`)
+- A [Linear OAuth app](https://linear.app/settings/api/applications/new) (actor=app)
+- GitHub personal access token with `repo` scope ([create one](https://github.com/settings/tokens))
+
 ## Quick start
 
 You can use the [`feliz-setup`](skills/feliz-setup/SKILL.md) and [`feliz-add-project`](skills/feliz-add-project/SKILL.md) agent skills:
