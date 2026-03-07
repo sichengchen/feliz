@@ -32,10 +32,20 @@ if [ "$AGENT_FOUND" -eq 0 ]; then
   echo "  [WARN] No agent CLI found (claude or codex). Install one or set ANTHROPIC_API_KEY / OPENAI_API_KEY."
 fi
 
-# Check GitHub CLI auth
+# Check GitHub CLI auth and token scope
 if command -v gh >/dev/null 2>&1; then
   if gh auth status >/dev/null 2>&1; then
     echo "  [OK] gh authenticated"
+    # Verify token has repo access by checking scopes
+    TOKEN_SCOPES=$(gh api -i user 2>/dev/null | grep -i "x-oauth-scopes:" | head -1 || true)
+    if [ -n "$TOKEN_SCOPES" ]; then
+      if echo "$TOKEN_SCOPES" | grep -qi "repo"; then
+        echo "  [OK] GITHUB_TOKEN has 'repo' scope"
+      else
+        echo "  [WARN] GITHUB_TOKEN may be missing 'repo' scope. PR creation requires it."
+        echo "         Scopes found:$TOKEN_SCOPES"
+      fi
+    fi
   else
     if [ -n "$GITHUB_TOKEN" ] || [ -n "$GH_TOKEN" ]; then
       echo "  [OK] gh will authenticate via GITHUB_TOKEN/GH_TOKEN env var"

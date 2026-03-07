@@ -9,6 +9,9 @@ export const CONFIG_TEMPLATE = `# Feliz configuration
 linear:
   oauth_token: $LINEAR_OAUTH_TOKEN  # Set this environment variable
 
+webhook:
+  port: 3421
+
 projects:
   - name: my-project
     repo: git@github.com:org/repo.git
