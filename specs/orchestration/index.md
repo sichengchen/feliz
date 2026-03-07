@@ -125,7 +125,7 @@ When a new Agent Session is created:
 | `running` | `retry_queued` | Pipeline fails, retries remaining |
 | `running` | `failed` | Pipeline fails, no retries remaining |
 | `retry_queued` | `queued` | Backoff timer expires |
-| any | `cancelled` | User cancels via `@Feliz cancel` |
+| any | `cancelled` | User cancels via `@Feliz cancel` or Linear stop signal |
 
 **Note**: The states `spec_drafting` and `spec_review` only exist when `specs.enabled: true`. When specs are disabled, these states are never entered and the orchestration state type excludes them.
 
@@ -165,7 +165,8 @@ The orchestrator is intentionally thin. It manages:
 3. **Dispatch** — selecting eligible work items and invoking agent adapters
 4. **Retry** — managing backoff timers and attempt counts
 5. **Context assembly** — gathering history, memory, scratchpad for each step
-6. **Status updates** — posting results back to Linear (👀 reactions, comments, state changes)
+6. **Status updates** — emitting agent activities at lifecycle transitions (run started, succeeded, failed)
+7. **Stop signal handling** — cancelling work items and agent processes when Linear stop signal received
 
 The orchestrator does **not** handle:
 - Git operations (cloning, pushing, branching) — handled by workspace manager or agent
@@ -215,6 +216,20 @@ New work items enter through the Agent Session webhook handler (not the tick).
 - **Given** a parent work item in `decompose_review` with child work items
 - **When** the final child transitions to `completed`
 - **Then** Feliz auto-transitions the parent to `completed` and records `parent.auto_completed`
+
+### Scenario: Stop Signal Cancels Work Item
+
+- **Given** a work item is in any active state (`queued`, `running`, etc.)
+- **When** Linear fires a webhook with `agentSession.signal = "stop"`
+- **Then** Feliz cancels the work item, cancels any running agent process, and emits an `error` activity ("Cancelled by user")
+
+### Scenario: Lifecycle Status Emissions
+
+- **Given** a work item transitions to `running` (agent run starts)
+- **When** the work item has a `linear_session_id`
+- **Then** Feliz emits a `thought` activity ("Started working on this")
+- **And** on success, emits a `response` activity ("Completed successfully")
+- **And** on failure, emits a `response` activity with the failure reason
 
 ## Approval Gates
 

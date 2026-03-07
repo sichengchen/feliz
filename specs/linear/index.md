@@ -115,8 +115,9 @@ Feliz communicates status back to Linear through **Agent Activities** rather tha
 
 | Activity type | When Feliz emits it |
 |---|---|
-| `thought` | Acknowledging a mention/delegation (within 10s). Intermediate status updates. |
-| `comment` | Posting detailed results, spec drafts, decomposition proposals, questions for the user. |
+| `thought` | Acknowledging a mention/delegation (within 10s). Intermediate status updates ("Started working on this"). |
+| `response` | Posting detailed results, spec drafts, decomposition proposals, questions for the user. |
+| `error` | Reporting terminal failures — agent run failed, stop signal received, unrecoverable errors. |
 
 ```typescript
 // Acknowledge receipt
@@ -133,6 +134,21 @@ await linearClient.agentActivity.create({
   content: 'PR created: [link]. Summary of changes...',
 });
 ```
+
+### Session ID Tracking
+
+The `agentSession.id` from each webhook event is stored on the WorkItem as `linear_session_id`. This allows the orchestrator to emit activities back to Linear at lifecycle transitions (run started, succeeded, failed) without needing direct access to the webhook payload.
+
+- On `created` events: stored when the WorkItem is first created.
+- On `prompted` events: always updated to the latest session ID, since Linear may create new sessions for the same issue.
+
+### Agent Signals
+
+Linear's [Agent Signals API](https://linear.app/developers/agent-signals) allows users to send signals to agents via the UI (e.g., clicking "Stop"). Signals arrive as part of the `AgentSessionEvent` webhook payload in the `agentSession.signal` field.
+
+| Signal | Effect |
+|---|---|
+| `stop` | Cancel the work item, cancel any running agent process, emit `error` activity |
 
 ### Commands
 
@@ -167,12 +183,15 @@ This gives the user immediate visual feedback that Feliz received their message.
 | Event | Activity |
 |---|---|
 | Issue assigned/delegated to Feliz | `thought`: "Looking into this..." |
-| Spec drafted | `comment`: Spec summary + "Reply `@Feliz approve` to proceed" |
-| Decomposition proposed | `comment`: Breakdown summary + "Reply `@Feliz approve` to create issues" |
+| Spec drafted | `response`: Spec summary + "Reply `@Feliz approve` to proceed" |
+| Decomposition proposed | `response`: Breakdown summary + "Reply `@Feliz approve` to create issues" |
 | Agent run started | `thought`: "Started working on this (attempt N)" |
-| Agent run succeeded | `comment`: PR link + summary of changes |
-| Agent run failed | `comment`: Failure summary + "Reply `@Feliz retry` to retry" |
-| Agent needs help | `comment`: Description of problem + question for user |
+| Agent run succeeded | `response`: PR link + summary of changes |
+| Agent run failed | `response`: Failure summary + "Reply `@Feliz retry` to retry" |
+| Stop signal received | `error`: "Cancelled by user" — emitted when user clicks Stop in Linear UI |
+| Agent needs help | `response`: Description of problem + question for user |
+
+All activity emissions are best-effort (wrapped in try/catch). Linear API downtime must never block agent execution.
 
 ### State transitions (via GraphQL)
 
