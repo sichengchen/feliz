@@ -22,6 +22,7 @@ RUN apt-get update && \
       git \
       openssh-client \
       curl \
+      ca-certificates \
       gpg && \
     rm -rf /var/lib/apt/lists/*
 
