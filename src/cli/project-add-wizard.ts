@@ -97,8 +97,13 @@ export async function runProjectAddWizard(deps: WizardDeps): Promise<void> {
 
     const pushInput = deps.prompt("Commit and push .feliz/ config? [Y/n]:");
     if (pushInput?.toLowerCase() !== "n") {
-      deps.gitCommitAndPush(repoPath, branch);
-      console.log("Pushed config to remote.");
+      try {
+        deps.gitCommitAndPush(repoPath, branch);
+        console.log("Pushed config to remote.");
+      } catch (e: any) {
+        console.warn(`Warning: ${e.message}`);
+        console.warn("The config was committed locally. You can push manually later.");
+      }
     }
   }
 

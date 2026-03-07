@@ -145,6 +145,33 @@ describe("runProjectAddWizard", () => {
     expect(deps.writeRepoScaffold).not.toHaveBeenCalled();
   });
 
+  test("continues adding project when push fails", async () => {
+    let promptIdx = 0;
+    const answers = [
+      "1",
+      "git@github.com:org/backend-api.git",
+      "",
+      "claude-code",
+      "n",
+      "",
+      "",
+      "y",  // commit & push
+    ];
+    const promptFn = mock((msg: string) => answers[promptIdx++] ?? null);
+
+    const deps = makeDeps({
+      prompt: promptFn as any,
+      gitCommitAndPush: mock((_path: string, _branch: string) => {
+        throw new Error("Failed to push: remote: Write access not granted.");
+      }) as any,
+    });
+
+    await runProjectAddWizard(deps);
+
+    // Project should still be added despite push failure
+    expect(deps.addProjectToConfig).toHaveBeenCalledTimes(1);
+  });
+
   test("throws on invalid project selection", async () => {
     let promptIdx = 0;
     const answers = ["99"];
