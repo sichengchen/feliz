@@ -67,6 +67,27 @@ describe("Database", () => {
     expect(projects).toHaveLength(2);
   });
 
+  test("deletes a project by id", () => {
+    db.insertProject({
+      id: "p1",
+      name: "a",
+      repo_url: "git@a.git",
+      linear_project_name: "A",
+      base_branch: "main",
+    });
+    db.insertProject({
+      id: "p2",
+      name: "b",
+      repo_url: "git@b.git",
+      linear_project_name: "B",
+      base_branch: "main",
+    });
+    db.deleteProject("p1");
+    const projects = db.listProjects();
+    expect(projects).toHaveLength(1);
+    expect(projects[0]!.name).toBe("b");
+  });
+
   // WorkItem CRUD
   test("inserts and retrieves a work item", () => {
     db.insertProject({

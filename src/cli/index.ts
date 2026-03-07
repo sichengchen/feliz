@@ -118,13 +118,12 @@ async function main() {
         return;
       }
       const db = new Database(dbPath);
-      const projects = db.listProjects();
       const running = db.countRunningItems();
       console.log(
-        `Feliz status: ${projects.length} project(s), ${running} running agent(s).`
+        `Feliz status: ${config.projects.length} project(s), ${running} running agent(s).`
       );
-      for (const p of projects) {
-        console.log(`  ${p.name}: watching "${p.linear_project_name}"`);
+      for (const p of config.projects) {
+        console.log(`  ${p.name}: watching "${p.linear_project}"`);
       }
       db.close();
     } catch (e: any) {

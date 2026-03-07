@@ -184,6 +184,10 @@ export class Database {
     );
   }
 
+  deleteProject(id: string) {
+    this.db.query("DELETE FROM projects WHERE id = ?1").run(id);
+  }
+
   // WorkItems
   upsertWorkItem(wi: {
     id: string;
