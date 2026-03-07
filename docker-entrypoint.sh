@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-CONFIG_PATH="${FELIZ_CONFIG_PATH:-/root/.feliz/feliz.yml}"
+CONFIG_PATH="${FELIZ_CONFIG_PATH:-${HOME}/.feliz/feliz.yml}"
 
 # --- Preflight checks ---
 echo "Feliz preflight checks..."

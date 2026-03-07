@@ -36,16 +36,28 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     apt-get install -y --no-install-recommends gh && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI
-RUN curl -fsSL https://claude.ai/install.sh | bash || true
-ENV PATH="/root/.local/bin:$PATH"
-
 # Install Codex CLI
 RUN npm install -g @openai/codex || true
 
-RUN mkdir -p /root/.ssh && \
-    echo "StrictHostKeyChecking accept-new" >> /root/.ssh/config && \
-    chmod 700 /root/.ssh
+# Create non-root user (claude CLI blocks --dangerously-skip-permissions as root)
+RUN groupadd -r feliz && useradd -r -g feliz -m -s /bin/bash feliz
+
+# Install Claude Code CLI as feliz user
+USER feliz
+RUN curl -fsSL https://claude.ai/install.sh | bash || true
+USER root
+
+ENV PATH="/home/feliz/.local/bin:$PATH"
+
+# Set up SSH for feliz user
+RUN mkdir -p /home/feliz/.ssh && \
+    echo "StrictHostKeyChecking accept-new" >> /home/feliz/.ssh/config && \
+    chmod 700 /home/feliz/.ssh && \
+    chown -R feliz:feliz /home/feliz/.ssh
+
+# Create data and config dirs owned by feliz
+RUN mkdir -p /data/feliz /home/feliz/.feliz && \
+    chown -R feliz:feliz /data/feliz /home/feliz/.feliz
 
 WORKDIR /app
 
@@ -55,6 +67,8 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/src ./src
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+USER feliz
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["start"]

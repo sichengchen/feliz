@@ -6,9 +6,9 @@ services:
       - "3421:3421"   # Linear webhook + OAuth callback
     volumes:
       - ${SSH_AUTH_SOCK}:/ssh-agent:ro
-      - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+      - ~/.ssh/known_hosts:/home/feliz/.ssh/known_hosts:ro
       - feliz-data:/data/feliz
-      - feliz-config:/root/.feliz
+      - feliz-config:/home/feliz/.feliz
     environment:
       - SSH_AUTH_SOCK=/ssh-agent
       - LINEAR_OAUTH_TOKEN
