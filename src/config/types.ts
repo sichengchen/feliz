@@ -1,6 +1,7 @@
 export interface FelizConfig {
   linear: {
     oauth_token: string;
+    app_user_id?: string;
   };
   webhook: {
     port: number;

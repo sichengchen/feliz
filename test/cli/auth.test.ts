@@ -213,6 +213,30 @@ agent:
     expect(content).toContain("claude-code");
   });
 
+  test("stores viewer ID alongside token", async () => {
+    const { writeTokenToConfig } = await import("../../src/cli/auth.ts");
+    const configPath = join(TEST_DIR, "feliz.yml");
+
+    writeTokenToConfig(configPath, "lin_oauth_xyz", false, "user_abc");
+
+    const content = readFileSync(configPath, "utf-8");
+    expect(content).toContain("lin_oauth_xyz");
+    expect(content).toContain("app_user_id: user_abc");
+  });
+
+  test("stores viewer ID when updating existing config", async () => {
+    const { writeTokenToConfig } = await import("../../src/cli/auth.ts");
+    const configPath = join(TEST_DIR, "feliz.yml");
+
+    writeFileSync(configPath, "linear:\n  oauth_token: old\nprojects: []\n", "utf-8");
+    writeTokenToConfig(configPath, "lin_oauth_new", false, "viewer_123");
+
+    const content = readFileSync(configPath, "utf-8");
+    expect(content).toContain("lin_oauth_new");
+    expect(content).toContain("app_user_id: viewer_123");
+    expect(content).not.toContain("old");
+  });
+
   test("creates nested directories for config path", async () => {
     const { writeTokenToConfig } = await import("../../src/cli/auth.ts");
     const configPath = join(TEST_DIR, "a", "b", "feliz.yml");

@@ -89,7 +89,8 @@ export async function verifyToken(
 export function writeTokenToConfig(
   configPath: string,
   token: string,
-  useEnvVar: boolean
+  useEnvVar: boolean,
+  viewerId?: string
 ): void {
   const tokenValue = useEnvVar ? "$LINEAR_OAUTH_TOKEN" : token;
 
@@ -99,14 +100,19 @@ export function writeTokenToConfig(
     if (!doc.linear) {
       doc.linear = {};
     }
-    (doc.linear as Record<string, unknown>).oauth_token = tokenValue;
+    const linear = doc.linear as Record<string, unknown>;
+    linear.oauth_token = tokenValue;
+    if (viewerId) {
+      linear.app_user_id = viewerId;
+    }
     writeFileSync(configPath, stringify(doc), "utf-8");
   } else {
     mkdirSync(dirname(configPath), { recursive: true });
-    const doc = {
-      linear: { oauth_token: tokenValue },
-      projects: [],
-    };
+    const linear: Record<string, string> = { oauth_token: tokenValue };
+    if (viewerId) {
+      linear.app_user_id = viewerId;
+    }
+    const doc = { linear, projects: [] as unknown[] };
     writeFileSync(configPath, stringify(doc), "utf-8");
   }
 }
@@ -171,7 +177,7 @@ export async function runAuth(
     ) ?? "Y";
   const useEnvVar = storeChoice.toLowerCase() !== "n";
 
-  writeTokenToConfig(configPath, tokenResult.access_token, useEnvVar);
+  writeTokenToConfig(configPath, tokenResult.access_token, useEnvVar, viewer?.id);
   console.log(`Token saved to ${configPath}`);
 
   if (useEnvVar) {
@@ -181,6 +187,15 @@ export async function runAuth(
     );
     console.log(`  export LINEAR_OAUTH_TOKEN=${tokenResult.access_token}`);
   }
+
+  console.log("");
+  console.log("Next steps:");
+  console.log("  1. Configure Linear webhooks:");
+  console.log("     - Go to your Linear OAuth app settings");
+  console.log("     - Enable webhooks and select 'Agent session events'");
+  console.log("     - Set webhook URL to: https://<your-host>:3421/webhook/linear");
+  console.log("  2. Add a project: feliz project add");
+  console.log("  3. Start Feliz:   feliz start");
 }
 
 function waitForCallback(port: number): Promise<string> {
