@@ -24,7 +24,8 @@ RUN apt-get update && \
       curl \
       nodejs \
       npm \
-      gpg && \
+      gpg \
+      gosu && \
     rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -67,8 +68,6 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/src ./src
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-USER feliz
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["start"]

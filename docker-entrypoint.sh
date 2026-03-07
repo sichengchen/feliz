@@ -1,7 +1,12 @@
 #!/bin/sh
 set -e
 
-CONFIG_PATH="${FELIZ_CONFIG_PATH:-${HOME}/.feliz/feliz.yml}"
+# --- Fix volume ownership for non-root user ---
+if [ "$(id -u)" = "0" ]; then
+  chown -R feliz:feliz /data/feliz /home/feliz/.feliz 2>/dev/null || true
+fi
+
+CONFIG_PATH="${FELIZ_CONFIG_PATH:-/home/feliz/.feliz/feliz.yml}"
 
 # --- Preflight checks ---
 echo "Feliz preflight checks..."
@@ -111,6 +116,10 @@ else
   echo ""
 fi
 
-# --- Run the requested command ---
-# --config before $@ so user-provided --config overrides the default
-exec bun run src/cli/index.ts --config "$CONFIG_PATH" "$@"
+# --- Run the requested command as non-root ---
+# claude CLI blocks --dangerously-skip-permissions as root
+if [ "$(id -u)" = "0" ]; then
+  exec gosu feliz bun run src/cli/index.ts --config "$CONFIG_PATH" "$@"
+else
+  exec bun run src/cli/index.ts --config "$CONFIG_PATH" "$@"
+fi
