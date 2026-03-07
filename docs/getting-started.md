@@ -140,7 +140,7 @@ Install an agent CLI inside the container:
 docker compose exec feliz bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
 
 # Codex
-docker compose exec feliz bun install -g @openai/codex
+docker compose exec feliz npm install -g @openai/codex
 ```
 
 Run CLI commands inside the container:

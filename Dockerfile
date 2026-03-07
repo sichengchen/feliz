@@ -23,7 +23,9 @@ RUN apt-get update && \
       openssh-client \
       curl \
       ca-certificates \
-      gpg && \
+      gpg \
+      nodejs \
+      npm && \
     rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI

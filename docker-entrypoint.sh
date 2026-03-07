@@ -31,7 +31,7 @@ fi
 if [ "$AGENT_FOUND" -eq 0 ]; then
   echo "  [WARN] No agent CLI found. Install one:"
   echo "         claude: curl -fsSL https://claude.ai/install.sh | bash"
-  echo "         codex:  bun install -g @openai/codex"
+  echo "         codex:  npm install -g @openai/codex"
 fi
 
 # Check GitHub CLI auth
