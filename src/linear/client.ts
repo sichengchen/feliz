@@ -1,3 +1,5 @@
+import { LinearClient as SdkLinearClient } from "@linear/sdk";
+
 export interface LinearIssue {
   id: string;
   identifier: string;
@@ -21,266 +23,83 @@ export interface LinearProject {
   name: string;
 }
 
-const PROJECTS_QUERY = `
-query FelizListProjects($after: String) {
-  projects(
-    after: $after
-    first: 50
-    orderBy: createdAt
-  ) {
-    nodes {
-      id
-      name
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`;
-
-const ISSUES_QUERY = `
-query FelizPollIssues($projectName: String!, $after: String) {
-  issues(
-    filter: {
-      project: { name: { eq: $projectName } }
-    }
-    after: $after
-    first: 50
-    orderBy: createdAt
-  ) {
-    nodes {
-      id
-      identifier
-      title
-      description
-      priority
-      state { name }
-      labels { nodes { name } }
-      relations {
-        nodes {
-          type
-          relatedIssue { id identifier state { name } }
-        }
-      }
-      branchName
-      url
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`;
-
 export class LinearClient {
-  private oauthToken: string;
-  private fetch: typeof fetch;
+  private sdk: SdkLinearClient;
 
-  constructor(oauthToken: string, fetchFn: typeof fetch = globalThis.fetch) {
-    this.oauthToken = oauthToken;
-    this.fetch = fetchFn;
+  constructor(oauthToken: string, sdkClient?: SdkLinearClient) {
+    this.sdk = sdkClient ?? new SdkLinearClient({ accessToken: oauthToken });
   }
 
   async fetchProjects(): Promise<LinearProject[]> {
-    const allProjects: LinearProject[] = [];
-    let cursor: string | null = null;
+    const connection = await this.sdk.projects({ first: 50, orderBy: "createdAt" as any });
 
-    do {
-      const response = await this.fetch("https://api.linear.app/graphql", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.oauthToken}`,
-        },
-        body: JSON.stringify({
-          query: PROJECTS_QUERY,
-          variables: { after: cursor },
-        }),
-      });
+    while (connection.pageInfo.hasNextPage) {
+      await connection.fetchNext();
+    }
 
-      const json = (await response.json()) as {
-        data: {
-          projects: {
-            nodes: { id: string; name: string }[];
-            pageInfo: { hasNextPage: boolean; endCursor: string | null };
-          };
-        };
-      };
-
-      const { nodes, pageInfo } = json.data.projects;
-
-      for (const node of nodes) {
-        allProjects.push({ id: node.id, name: node.name });
-      }
-
-      cursor = pageInfo.hasNextPage ? pageInfo.endCursor : null;
-    } while (cursor !== null);
-
-    return allProjects;
+    return connection.nodes.map((p) => ({ id: p.id, name: p.name }));
   }
 
   async fetchProjectIssues(projectName: string): Promise<FetchResult> {
-    const allIssues: LinearIssue[] = [];
-    let cursor: string | null = null;
-    let rateLimitLow = false;
+    const connection = await this.sdk.issues({
+      filter: { project: { name: { eq: projectName } } },
+      first: 50,
+      orderBy: "createdAt" as any,
+    });
 
-    do {
-      const response = await this.fetch("https://api.linear.app/graphql", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.oauthToken}`,
-        },
-        body: JSON.stringify({
-          query: ISSUES_QUERY,
-          variables: { projectName, after: cursor },
-        }),
-      });
+    while (connection.pageInfo.hasNextPage) {
+      await connection.fetchNext();
+    }
 
-      const remaining = parseInt(
-        response.headers.get("X-RateLimit-Requests-Remaining") || "1000",
-        10
-      );
-      if (remaining < 100) {
-        rateLimitLow = true;
-      }
+    const issues: LinearIssue[] = await Promise.all(
+      connection.nodes.map(async (issue) => {
+        const [state, labelsConn, relationsConn] = await Promise.all([
+          issue.state,
+          issue.labels(),
+          issue.relations(),
+        ]);
 
-      const json = (await response.json()) as {
-        data: {
-          issues: {
-            nodes: RawIssue[];
-            pageInfo: { hasNextPage: boolean; endCursor: string | null };
-          };
+        const blockerIds = relationsConn.nodes
+          .filter((r) => r.type === "blocks")
+          .map((r) => (r as any).relatedIssueId as string);
+
+        return {
+          id: issue.id,
+          identifier: issue.identifier,
+          title: issue.title,
+          description: issue.description || "",
+          priority: issue.priority,
+          state: state?.name ?? "",
+          labels: labelsConn.nodes.map((l) => l.name),
+          blocker_ids: blockerIds,
+          branch_name: issue.branchName ?? null,
+          url: issue.url,
         };
-      };
+      })
+    );
 
-      const { nodes, pageInfo } = json.data.issues;
-
-      for (const node of nodes) {
-        allIssues.push(parseIssue(node));
-      }
-
-      cursor = pageInfo.hasNextPage ? pageInfo.endCursor : null;
-    } while (cursor !== null);
-
-    return { issues: allIssues, rateLimitLow };
+    return { issues, rateLimitLow: false };
   }
 
   async updateIssueState(issueId: string, stateId: string): Promise<void> {
-    await this.fetch("https://api.linear.app/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.oauthToken}`,
-      },
-      body: JSON.stringify({
-        query: `mutation FelizUpdateIssueState($issueId: String!, $stateId: String!) {
-  issueUpdate(id: $issueId, input: { stateId: $stateId }) { success }
-}`,
-        variables: {
-          issueId,
-          stateId,
-        },
-      }),
-    });
+    await this.sdk.updateIssue(issueId, { stateId });
   }
 
   async createComment(issueId: string, body: string): Promise<void> {
-    await this.fetch("https://api.linear.app/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.oauthToken}`,
-      },
-      body: JSON.stringify({
-        query: `mutation FelizCreateComment($issueId: String!, $body: String!) {
-  commentCreate(input: { issueId: $issueId, body: $body }) { success }
-}`,
-        variables: {
-          issueId,
-          body,
-        },
-      }),
-    });
+    await this.sdk.createComment({ issueId, body });
   }
 
   async emitThought(sessionId: string, body: string): Promise<void> {
-    const response = await this.fetch("https://api.linear.app/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.oauthToken}`,
-      },
-      body: JSON.stringify({
-        query: `mutation FelizEmitThought($input: AgentActivityCreateInput!) {
-  agentActivityCreate(input: $input) { success }
-}`,
-        variables: {
-          input: {
-            agentSessionId: sessionId,
-            content: { type: "thought", body },
-          },
-        },
-      }),
+    await this.sdk.createAgentActivity({
+      agentSessionId: sessionId,
+      content: { type: "thought", body },
     });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`emitThought failed: HTTP ${response.status}: ${text}`);
-    }
   }
 
   async emitComment(sessionId: string, body: string): Promise<void> {
-    const response = await this.fetch("https://api.linear.app/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.oauthToken}`,
-      },
-      body: JSON.stringify({
-        query: `mutation FelizEmitComment($input: AgentActivityCreateInput!) {
-  agentActivityCreate(input: $input) { success }
-}`,
-        variables: {
-          input: {
-            agentSessionId: sessionId,
-            content: { type: "response", body },
-          },
-        },
-      }),
+    await this.sdk.createAgentActivity({
+      agentSessionId: sessionId,
+      content: { type: "response", body },
     });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`emitComment failed: HTTP ${response.status}: ${text}`);
-    }
   }
-}
-
-interface RawIssue {
-  id: string;
-  identifier: string;
-  title: string;
-  description: string;
-  priority: number;
-  state: { name: string };
-  labels: { nodes: { name: string }[] };
-  relations: {
-    nodes: {
-      type: string;
-      relatedIssue: { id: string; identifier: string; state: { name: string } };
-    }[];
-  };
-  branchName: string | null;
-  url: string;
-}
-
-function parseIssue(raw: RawIssue): LinearIssue {
-  return {
-    id: raw.id,
-    identifier: raw.identifier,
-    title: raw.title,
-    description: raw.description || "",
-    priority: raw.priority,
-    state: raw.state.name,
-    labels: raw.labels.nodes.map((l) => l.name),
-    blocker_ids: raw.relations.nodes
-      .filter((r) => r.type === "blocks")
-      .map((r) => r.relatedIssue.id),
-    branch_name: raw.branchName,
-    url: raw.url,
-  };
 }
