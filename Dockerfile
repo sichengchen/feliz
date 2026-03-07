@@ -69,5 +69,10 @@ COPY --from=build /app/src ./src
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Default to non-root user for `docker compose exec` commands.
+# The entrypoint runs as root (via compose user: root) for volume chown,
+# then drops to feliz with gosu.
+USER feliz
+
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["start"]

@@ -1,21 +1,16 @@
 #!/bin/sh
 set -e
 
-# --- Fix volume ownership for non-root user ---
-if [ "$(id -u)" = "0" ]; then
-  chown -R feliz:feliz /data/feliz /home/feliz/.feliz 2>/dev/null || true
-fi
-
 CONFIG_PATH="${FELIZ_CONFIG_PATH:-/home/feliz/.feliz/feliz.yml}"
 
 # --- Install agent CLIs if missing (build-time install may have failed) ---
 if ! command -v claude >/dev/null 2>&1; then
   echo "Claude Code not found, installing..."
-  gosu feliz bash -c 'curl -fsSL https://claude.ai/install.sh | bash' 2>&1 || echo "[WARN] Claude Code installation failed"
+  curl -fsSL https://claude.ai/install.sh | bash 2>&1 || echo "[WARN] Claude Code installation failed"
 fi
 if ! command -v codex >/dev/null 2>&1; then
   echo "Codex not found, installing..."
-  npm install -g @openai/codex 2>&1 || echo "[WARN] Codex installation failed"
+  npm install --prefix "$HOME/.local" @openai/codex 2>&1 || echo "[WARN] Codex installation failed"
 fi
 
 # --- Preflight checks ---
@@ -126,10 +121,5 @@ else
   echo ""
 fi
 
-# --- Run the requested command as non-root ---
-# claude CLI blocks --dangerously-skip-permissions as root
-if [ "$(id -u)" = "0" ]; then
-  exec gosu feliz bun run src/cli/index.ts --config "$CONFIG_PATH" "$@"
-else
-  exec bun run src/cli/index.ts --config "$CONFIG_PATH" "$@"
-fi
+# --- Run the command ---
+exec bun run src/cli/index.ts --config "$CONFIG_PATH" "$@"
