@@ -22,10 +22,7 @@ RUN apt-get update && \
       git \
       openssh-client \
       curl \
-      nodejs \
-      npm \
-      gpg \
-      gosu && \
+      gpg && \
     rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -37,16 +34,8 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     apt-get install -y --no-install-recommends gh && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Codex CLI
-RUN npm install -g @openai/codex || true
-
-# Create non-root user (claude CLI blocks --dangerously-skip-permissions as root)
+# Create non-root user
 RUN groupadd -r feliz && useradd -r -g feliz -m -s /bin/bash feliz
-
-# Install Claude Code CLI as feliz user
-USER feliz
-RUN curl -fsSL https://claude.ai/install.sh | bash || true
-USER root
 
 ENV PATH="/home/feliz/.local/bin:$PATH"
 
@@ -69,9 +58,6 @@ COPY --from=build /app/src ./src
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Default to non-root user for `docker compose exec` commands.
-# The entrypoint runs as root (via compose user: root) for volume chown,
-# then drops to feliz with gosu.
 USER feliz
 
 ENTRYPOINT ["docker-entrypoint.sh"]

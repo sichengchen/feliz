@@ -4,7 +4,6 @@ import type {
   AgentRunParams,
   AgentRunResult,
 } from "../../src/agents/adapter.ts";
-import { wrapForNonRoot } from "../../src/agents/run-as-user.ts";
 import {
   ClaudeCodeAdapter,
 } from "../../src/agents/claude-code.ts";
@@ -24,18 +23,6 @@ describe("AgentAdapter interface", () => {
       cancel: async () => {},
     };
     expect(adapter.name).toBe("test-agent");
-  });
-});
-
-describe("wrapForNonRoot", () => {
-  test("returns command unchanged when not root", () => {
-    const result = wrapForNonRoot(["claude", "--print", "hello"], 1000);
-    expect(result).toEqual(["claude", "--print", "hello"]);
-  });
-
-  test("wraps command with gosu when root", () => {
-    const result = wrapForNonRoot(["claude", "--print", "hello"], 0);
-    expect(result).toEqual(["gosu", "feliz", "claude", "--print", "hello"]);
   });
 });
 

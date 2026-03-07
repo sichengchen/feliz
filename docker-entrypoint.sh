@@ -3,16 +3,6 @@ set -e
 
 CONFIG_PATH="${FELIZ_CONFIG_PATH:-/home/feliz/.feliz/feliz.yml}"
 
-# --- Install agent CLIs if missing (build-time install may have failed) ---
-if ! command -v claude >/dev/null 2>&1; then
-  echo "Claude Code not found, installing..."
-  curl -fsSL https://claude.ai/install.sh | bash 2>&1 || echo "[WARN] Claude Code installation failed"
-fi
-if ! command -v codex >/dev/null 2>&1; then
-  echo "Codex not found, installing..."
-  npm install --prefix "$HOME/.local" @openai/codex 2>&1 || echo "[WARN] Codex installation failed"
-fi
-
 # --- Preflight checks ---
 echo "Feliz preflight checks..."
 
@@ -28,7 +18,7 @@ check_tool bun
 check_tool git
 check_tool gh
 
-# Check at least one agent CLI
+# Check agent CLIs
 AGENT_FOUND=0
 if command -v claude >/dev/null 2>&1; then
   echo "  [OK] claude found"
@@ -39,23 +29,15 @@ if command -v codex >/dev/null 2>&1; then
   AGENT_FOUND=1
 fi
 if [ "$AGENT_FOUND" -eq 0 ]; then
-  echo "  [WARN] No agent CLI found (claude or codex). Install one or set ANTHROPIC_API_KEY / OPENAI_API_KEY."
+  echo "  [WARN] No agent CLI found. Install one:"
+  echo "         claude: curl -fsSL https://claude.ai/install.sh | bash"
+  echo "         codex:  npm install -g @openai/codex"
 fi
 
-# Check GitHub CLI auth and token scope
+# Check GitHub CLI auth
 if command -v gh >/dev/null 2>&1; then
   if gh auth status >/dev/null 2>&1; then
     echo "  [OK] gh authenticated"
-    # Verify token has repo access by checking scopes
-    TOKEN_SCOPES=$(gh api -i user 2>/dev/null | grep -i "x-oauth-scopes:" | head -1 || true)
-    if [ -n "$TOKEN_SCOPES" ]; then
-      if echo "$TOKEN_SCOPES" | grep -qi "repo"; then
-        echo "  [OK] GITHUB_TOKEN has 'repo' scope"
-      else
-        echo "  [WARN] GITHUB_TOKEN may be missing 'repo' scope. PR creation requires it."
-        echo "         Scopes found:$TOKEN_SCOPES"
-      fi
-    fi
   else
     if [ -n "$GITHUB_TOKEN" ] || [ -n "$GH_TOKEN" ]; then
       echo "  [OK] gh will authenticate via GITHUB_TOKEN/GH_TOKEN env var"
@@ -72,12 +54,6 @@ fi
 if [ -z "$GITHUB_TOKEN" ] && [ -z "$GH_TOKEN" ]; then
   echo "  [WARN] GITHUB_TOKEN not set. GitHub operations (PR creation) will fail."
   echo "         Create a token with 'repo' scope at https://github.com/settings/tokens"
-fi
-if [ -z "$GIT_AUTHOR_NAME" ]; then
-  echo "  [WARN] GIT_AUTHOR_NAME not set. Commits will use system default."
-fi
-if [ -z "$GIT_AUTHOR_EMAIL" ]; then
-  echo "  [WARN] GIT_AUTHOR_EMAIL not set. Commits will use system default."
 fi
 
 echo ""
@@ -106,8 +82,10 @@ YAML
   echo "Config written to $CONFIG_PATH"
   echo ""
   echo "Next steps:"
-  echo "  1. Run setup:      docker compose exec feliz bun run src/cli/index.ts init"
-  echo "  2. Add a project:  docker compose exec feliz bun run src/cli/index.ts project add"
+  echo "  1. Install an agent: docker compose exec feliz bash"
+  echo "     claude: curl -fsSL https://claude.ai/install.sh | bash"
+  echo "     codex:  npm install -g @openai/codex"
+  echo "  2. Add a project:    docker compose exec feliz bun run src/cli/index.ts project add"
   echo ""
 fi
 

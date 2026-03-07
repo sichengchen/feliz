@@ -133,6 +133,16 @@ The Docker entrypoint automatically:
 - Generates `feliz.yml` from environment variables if none exists
 - Validates the configuration before starting
 
+Install an agent CLI inside the container:
+
+```bash
+# Claude Code
+docker compose exec feliz bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
+
+# Codex
+docker compose exec feliz npm install -g @openai/codex
+```
+
 Run CLI commands inside the container:
 
 ```bash

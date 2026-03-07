@@ -1,17 +1,16 @@
 import type { AgentAdapter, AgentRunParams, AgentRunResult } from "./adapter.ts";
-import { wrapForNonRoot } from "./run-as-user.ts";
 
 export class CodexAdapter implements AgentAdapter {
   name = "codex";
   private runningProcesses = new Map<string, { kill: () => void }>();
 
   async isAvailable(): Promise<boolean> {
-    const version = Bun.spawnSync(wrapForNonRoot(["codex", "--version"]));
+    const version = Bun.spawnSync(["codex", "--version"]);
     if (version.exitCode !== 0) return false;
 
     if (process.env.OPENAI_API_KEY) return true;
 
-    const auth = Bun.spawnSync(wrapForNonRoot(["codex", "login", "status"]));
+    const auth = Bun.spawnSync(["codex", "login", "status"]);
     return auth.exitCode === 0;
   }
 
@@ -76,9 +75,7 @@ export class CodexAdapter implements AgentAdapter {
   async execute(params: AgentRunParams): Promise<AgentRunResult> {
     const args = this.buildArgs(params);
 
-    const cmd = wrapForNonRoot(["codex", ...args]);
-
-    const proc = Bun.spawn(cmd, {
+    const proc = Bun.spawn(["codex", ...args], {
       cwd: params.workDir,
       env: { ...process.env, ...params.env },
       stdout: "pipe",

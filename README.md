@@ -36,8 +36,10 @@ Or with Docker:
 cp .env.example .env   # fill in credentials (see .env.example for guidance)
 docker compose up -d --build
 
-# The entrypoint runs preflight checks and auto-generates feliz.yml
-# Then add a project:
+# Install an agent CLI (claude or codex):
+docker compose exec feliz bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
+
+# Add a project:
 docker compose exec feliz bun run src/cli/index.ts project add
 ```
 

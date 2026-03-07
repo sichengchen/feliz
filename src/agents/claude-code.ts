@@ -1,17 +1,16 @@
 import type { AgentAdapter, AgentRunParams, AgentRunResult } from "./adapter.ts";
-import { wrapForNonRoot } from "./run-as-user.ts";
 
 export class ClaudeCodeAdapter implements AgentAdapter {
   name = "claude-code";
   private runningProcesses = new Map<string, { kill: () => void }>();
 
   async isAvailable(): Promise<boolean> {
-    const version = Bun.spawnSync(wrapForNonRoot(["claude", "--version"]));
+    const version = Bun.spawnSync(["claude", "--version"]);
     if (version.exitCode !== 0) return false;
 
     if (process.env.ANTHROPIC_API_KEY) return true;
 
-    const auth = Bun.spawnSync(wrapForNonRoot(["claude", "auth", "status"]), {
+    const auth = Bun.spawnSync(["claude", "auth", "status"], {
       env: { ...process.env, CLAUDECODE: "" },
     });
     if (auth.exitCode !== 0) return false;
@@ -76,9 +75,7 @@ export class ClaudeCodeAdapter implements AgentAdapter {
   async execute(params: AgentRunParams): Promise<AgentRunResult> {
     const args = this.buildArgs(params);
 
-    const cmd = wrapForNonRoot(["claude", ...args]);
-
-    const proc = Bun.spawn(cmd, {
+    const proc = Bun.spawn(["claude", ...args], {
       cwd: params.workDir,
       env: { ...process.env, ...params.env },
       stdout: "pipe",
