@@ -352,6 +352,7 @@ export class Orchestrator {
         approval_policy: this.repoConfig.agent.approval_policy,
         timeout_ms: this.repoConfig.agent.timeout_ms,
         max_turns: this.repoConfig.agent.max_turns,
+        defaultAgent: this.repoConfig.agent.adapter,
       },
       {
         before_run: this.repoConfig.hooks.before_run,

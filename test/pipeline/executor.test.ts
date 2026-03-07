@@ -672,6 +672,59 @@ describe("PipelineExecutor", () => {
     expect(receivedCycles).toEqual([1, 2, 3]);
   });
 
+  test("uses defaultAgent when step has no agent specified", async () => {
+    const adapter = makeAdapter();
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "execute",
+          steps: [
+            { name: "run", prompt: "WORKFLOW.md" },
+          ],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(
+      db,
+      { "claude-code": adapter },
+      { approval_policy: "auto", timeout_ms: 600000, max_turns: 20, defaultAgent: "claude-code" }
+    );
+    const result = await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: () => "prompt",
+    });
+
+    expect(result.success).toBe(true);
+    expect(adapter.execute).toHaveBeenCalledTimes(1);
+  });
+
+  test("fails when step has no agent and no defaultAgent configured", async () => {
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "execute",
+          steps: [
+            { name: "run", prompt: "WORKFLOW.md" },
+          ],
+        },
+      ],
+    };
+
+    const executor = new PipelineExecutor(db, {});
+    const result = await executor.execute({
+      runId: "run-1",
+      workDir: TEST_WORK_DIR,
+      pipeline,
+      promptRenderer: () => "prompt",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.failureReason).toContain("No agent");
+  });
+
   test("passes approval policy to agent via agentConfig", async () => {
     const adapter = makeAdapter();
     const pipeline: PipelineDefinition = {

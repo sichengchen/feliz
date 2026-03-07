@@ -9,6 +9,7 @@ export interface AgentConfig {
   approval_policy: "auto" | "gated" | "suggest";
   timeout_ms: number;
   max_turns: number;
+  defaultAgent?: string;
 }
 
 export interface HooksConfig {
@@ -85,18 +86,19 @@ export class PipelineExecutor {
               runHook(this.hooks.before_run, params.workDir);
             }
 
-            if (step.agent) {
-              const adapter = this.adapters[step.agent];
+            const agentName = step.agent || this.agentConfig.defaultAgent;
+            if (agentName) {
+              const adapter = this.adapters[agentName];
               if (!adapter) {
                 this.db.updateStepResult(
                   seId,
                   "failed",
                   -1,
-                  `Agent adapter "${step.agent}" not found`
+                  `Agent adapter "${agentName}" not found`
                 );
                 return {
                   success: false,
-                  failureReason: `Agent adapter "${step.agent}" not found`,
+                  failureReason: `Agent adapter "${agentName}" not found`,
                   warnings,
                 };
               }
@@ -129,10 +131,18 @@ export class PipelineExecutor {
                 if (attempt < maxAttempts) continue;
               }
             } else {
-              // No agent — just evaluate success condition
-              if (this.hooks.after_run) {
-                runHook(this.hooks.after_run, params.workDir);
-              }
+              // No agent configured at all — fail
+              this.db.updateStepResult(
+                seId,
+                "failed",
+                -1,
+                `No agent configured for step "${step.name}"`
+              );
+              return {
+                success: false,
+                failureReason: `No agent configured for step "${step.name}" and no defaultAgent set`,
+                warnings,
+              };
             }
 
             // Evaluate success condition
