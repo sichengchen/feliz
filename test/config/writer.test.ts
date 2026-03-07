@@ -139,4 +139,17 @@ describe("generateWorkflowMd", () => {
     expect(md).toContain("{{ issue.title }}");
     expect(md).toContain("{{ issue.description }}");
   });
+
+  test("contains context system instructions", () => {
+    const md = generateWorkflowMd();
+    expect(md).toContain("feliz context read");
+    expect(md).toContain("feliz context write");
+  });
+
+  test("does not contain old template variables", () => {
+    const md = generateWorkflowMd();
+    expect(md).not.toContain("{{ specs }}");
+    expect(md).not.toContain("{{ previous_failure }}");
+    expect(md).not.toContain("{{ previous_review }}");
+  });
 });

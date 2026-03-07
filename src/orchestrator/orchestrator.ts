@@ -360,24 +360,12 @@ export class Orchestrator {
       }
     );
     const promptTemplateCache = new Map<string, string>();
-    const specDir = this.repoConfig.specs.enabled ? this.repoConfig.specs.directory : null;
-    const projectName = this.db.getProject(wi.project_id)?.name ?? wi.project_id;
 
     const result = await executor.execute({
       runId,
       workDir: executionDir,
       pipeline,
       promptRenderer: (phaseName, stepName, cycle) => {
-        // Re-assemble context before each step (includes scratchpad from prior steps)
-        const freshContext = contextAssembler.assemble(
-          wi.project_id,
-          wi.id,
-          executionDir,
-          runId,
-          specDir
-        );
-        contextAssembler.writeRunContext(executionDir, freshContext);
-
         const template = this.getStepPromptTemplate(
           executionDir,
           pipeline,
@@ -401,13 +389,6 @@ export class Orchestrator {
           cycle: cycle > 1 ? cycle : null,
           attempt: attempt > 1 ? attempt : null,
         });
-      },
-      afterStep: (stepResult) => {
-        if (stepResult.agentResult) {
-          const filename = `step-${stepResult.phaseName}-${stepResult.stepName}.md`;
-          const content = stepResult.agentResult.stdout || "";
-          contextAssembler.writeScratchpad(projectName, runId, filename, content);
-        }
       },
     });
 
@@ -551,7 +532,14 @@ export class Orchestrator {
       return workflowPrompt;
     }
 
-    const fallback = "{{ issue.title }}\n{{ issue.description }}";
+    const fallback = `{{ issue.title }}
+
+{{ issue.description }}
+
+## Context
+
+Run \`feliz context read\` to see history and prior step outputs.
+Run \`feliz context write <message>\` to leave findings for the next step.`;
     cache.set(cacheKey, fallback);
     return fallback;
   }

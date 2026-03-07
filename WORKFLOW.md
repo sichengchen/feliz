@@ -8,6 +8,13 @@ You are working on {{ project.name }}.
 
 {{ issue.description }}
 
+## Context
+
+Run `feliz context read` to see history and prior step outputs.
+Run `feliz context write <message>` to leave findings for the next step.
+Project memory is in `.feliz/context/memory/` — read and write files there directly.
+Specs are in `specs/`.
+
 ## Instructions
 
 - Read the relevant spec before writing any code

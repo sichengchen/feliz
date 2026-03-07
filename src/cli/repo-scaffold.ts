@@ -75,6 +75,15 @@ WORKFLOW.md MUST contain these exact template variables:
 - {{ issue.title }} — the issue title (REQUIRED — without this, the agent won't know what to do)
 - {{ issue.description }} — the issue description
 
+WORKFLOW.md MUST contain a "Context" section with these instructions:
+- Run \`feliz context read\` to see history and prior step outputs.
+- Run \`feliz context write <message>\` to leave findings for the next step.
+- Project memory is in \`.feliz/context/memory/\` — read and write files there directly.
+- Specs are in \`specs/\`.
+
+Do NOT use template variables like {{ specs }}, {{ previous_failure }}, or {{ previous_review }}.
+Agents access context via the \`feliz context\` CLI, not through prompt templates.
+
 Only modify the listed scaffold files/directories.`);
 
   return sections.join("\n\n");

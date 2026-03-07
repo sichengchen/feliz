@@ -6,6 +6,10 @@ Address the review feedback for this issue.
 
 **{{ issue.identifier }}**: {{ issue.title }}
 
+## Context
+
+Run `feliz context read` to see the review feedback from the previous step.
+
 ## Instructions
 
 - Fix each issue raised in the review

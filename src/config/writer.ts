@@ -98,25 +98,12 @@ You are working on {{ project.name }}.
 
 {{ issue.description }}
 
-{% if specs %}
-## Specifications
+## Context
 
-{{ specs }}
-{% endif %}
-
-{% if attempt %}
-## Previous Attempt
-
-This is attempt {{ attempt }}. Previous run failed with:
-{{ previous_failure }}
-{% endif %}
-
-{% if cycle %}
-## Review Cycle {{ cycle }}
-
-Previous review feedback:
-{{ previous_review }}
-{% endif %}
+Run \`feliz context read\` to see history and prior step outputs.
+Run \`feliz context write <message>\` to leave findings for the next step.
+Project memory is in \`.feliz/context/memory/\` — read and write files there directly.
+Specs are in \`specs/\`.
 
 ## Instructions
 
