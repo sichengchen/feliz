@@ -139,10 +139,16 @@ export async function writeRepoScaffoldWithAgent(
 }
 
 export function gitCommitAndPush(repoPath: string, branch: string): void {
+  const gitEnv = {
+    GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME || "Feliz Bot",
+    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL || "feliz@localhost",
+    GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME || process.env.GIT_AUTHOR_NAME || "Feliz Bot",
+    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL || process.env.GIT_AUTHOR_EMAIL || "feliz@localhost",
+  };
   Bun.spawnSync(["git", "add", ".feliz/", "WORKFLOW.md"], { cwd: repoPath });
   const commit = Bun.spawnSync(
     ["git", "commit", "-m", "chore: add feliz configuration"],
-    { cwd: repoPath }
+    { cwd: repoPath, env: { ...process.env, ...gitEnv } }
   );
   if (commit.exitCode !== 0) {
     throw new Error(

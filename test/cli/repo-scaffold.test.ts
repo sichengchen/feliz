@@ -104,6 +104,25 @@ describe("gitCommitAndPush", () => {
     const bareLog = Bun.spawnSync(["git", "log", "--oneline", "main"], { cwd: BARE_DIR });
     expect(bareLog.stdout.toString()).toContain("feliz");
   });
+
+  test("commits with default Feliz identity when no git user configured", () => {
+    // Remove user identity to simulate Docker/CI
+    Bun.spawnSync(["git", "config", "--unset", "user.email"], { cwd: CLONE_DIR });
+    Bun.spawnSync(["git", "config", "--unset", "user.name"], { cwd: CLONE_DIR });
+
+    writeRepoScaffold(CLONE_DIR, {
+      agentAdapter: "claude-code",
+      specsEnabled: false,
+    });
+
+    // Should not throw even without local git user config
+    gitCommitAndPush(CLONE_DIR, "main");
+
+    const log = Bun.spawnSync(["git", "log", "-1", "--format=%an"], { cwd: CLONE_DIR });
+    const authorName = log.stdout.toString().trim();
+    // Uses GIT_AUTHOR_NAME env if set, otherwise defaults to "Feliz Bot"
+    expect(authorName).toBe(process.env.GIT_AUTHOR_NAME || "Feliz Bot");
+  });
 });
 
 describe("writeRepoScaffoldWithAgent", () => {
