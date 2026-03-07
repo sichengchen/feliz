@@ -879,6 +879,200 @@ describe("Orchestrator", () => {
     expect(eventTypes).toContain("parent.auto_completed");
   });
 
+  test("emits thought on run started when linearClient provided", async () => {
+    db.upsertWorkItem({
+      id: "wi-emit",
+      linear_id: "l-emit",
+      linear_identifier: "T-EMIT",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Emit test",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+      linear_session_id: "session-emit",
+    });
+
+    const linearClient = {
+      emitThought: mock(async () => {}),
+      emitComment: mock(async () => {}),
+      emitError: mock(async () => {}),
+    };
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeSuccessAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5,
+      { linearClient }
+    );
+
+    await orch.dispatchQueued("proj-1", makeSimplePipeline(), TEST_WORK_DIR);
+
+    expect(linearClient.emitThought).toHaveBeenCalledWith(
+      "session-emit",
+      "Started working on this"
+    );
+  });
+
+  test("emits comment on run succeeded when linearClient provided", async () => {
+    db.upsertWorkItem({
+      id: "wi-succ",
+      linear_id: "l-succ",
+      linear_identifier: "T-SUCC",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Success test",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+      linear_session_id: "session-succ",
+    });
+
+    const linearClient = {
+      emitThought: mock(async () => {}),
+      emitComment: mock(async () => {}),
+      emitError: mock(async () => {}),
+    };
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeSuccessAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5,
+      { linearClient }
+    );
+
+    await orch.dispatchQueued("proj-1", makeSimplePipeline(), TEST_WORK_DIR);
+
+    expect(linearClient.emitComment).toHaveBeenCalledWith(
+      "session-succ",
+      "Completed successfully"
+    );
+  });
+
+  test("emits comment on run failed when linearClient provided", async () => {
+    db.upsertWorkItem({
+      id: "wi-fail",
+      linear_id: "l-fail",
+      linear_identifier: "T-FAIL",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Fail test",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+      linear_session_id: "session-fail",
+    });
+
+    const linearClient = {
+      emitThought: mock(async () => {}),
+      emitComment: mock(async () => {}),
+      emitError: mock(async () => {}),
+    };
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeFailAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5,
+      { linearClient }
+    );
+
+    await orch.dispatchQueued("proj-1", makeFailablePipeline(), TEST_WORK_DIR);
+
+    expect(linearClient.emitComment).toHaveBeenCalled();
+    const call = (linearClient.emitComment as ReturnType<typeof mock>).mock.calls[0]!;
+    expect(call[0]).toBe("session-fail");
+    expect((call[1] as string)).toContain("Run failed");
+  });
+
+  test("skips emission when no session ID", async () => {
+    db.upsertWorkItem({
+      id: "wi-nosess",
+      linear_id: "l-nosess",
+      linear_identifier: "T-NOSESS",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "No session test",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+
+    const linearClient = {
+      emitThought: mock(async () => {}),
+      emitComment: mock(async () => {}),
+      emitError: mock(async () => {}),
+    };
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": makeSuccessAdapter() },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5,
+      { linearClient }
+    );
+
+    await orch.dispatchQueued("proj-1", makeSimplePipeline(), TEST_WORK_DIR);
+
+    expect(linearClient.emitThought).not.toHaveBeenCalled();
+    expect(linearClient.emitComment).not.toHaveBeenCalled();
+  });
+
+  test("cancelWorkItem calls adapter.cancel for running agent", () => {
+    const adapter = makeSuccessAdapter();
+    db.upsertWorkItem({
+      id: "wi-cancel-agent",
+      linear_id: "l-cancel-agent",
+      linear_identifier: "T-CA",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Cancel agent test",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "running",
+    });
+    db.insertRun({
+      id: "run-ca",
+      work_item_id: "wi-cancel-agent",
+      attempt: 1,
+      current_phase: "execute",
+      current_step: "run",
+      context_snapshot_id: "snap-ca",
+    });
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": adapter },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+    orch.cancelWorkItem("wi-cancel-agent");
+
+    expect(adapter.cancel).toHaveBeenCalledWith("run-ca");
+  });
+
   test("checkParentCompletion does NOT complete parent when children still running", () => {
     db.upsertWorkItem({
       id: "parent-1",

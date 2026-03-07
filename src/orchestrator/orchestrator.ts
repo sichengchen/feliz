@@ -30,8 +30,15 @@ interface WorkspaceRuntime {
   ) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 }
 
+interface LinearActivityClient {
+  emitThought(sessionId: string, body: string): Promise<void>;
+  emitComment(sessionId: string, body: string): Promise<void>;
+  emitError(sessionId: string, body: string): Promise<void>;
+}
+
 interface OrchestratorOptions {
   workspace?: WorkspaceRuntime;
+  linearClient?: LinearActivityClient;
 }
 
 export class Orchestrator {
@@ -223,6 +230,16 @@ export class Orchestrator {
   cancelWorkItem(workItemId: string): void {
     const wi = this.db.getWorkItem(workItemId);
     if (!wi) return;
+
+    const latestRun = this.db.getLatestRunForWorkItem(wi.id);
+    if (latestRun && !latestRun.finished_at) {
+      const adapterName = this.repoConfig.agent.adapter;
+      const adapter = this.adapters[adapterName];
+      if (adapter) {
+        adapter.cancel(latestRun.id);
+      }
+    }
+
     this.transition(wi, "cancelled");
   }
 
@@ -319,6 +336,15 @@ export class Orchestrator {
       payload: { attempt, agent_adapter: this.repoConfig.agent.adapter },
     });
 
+    if (wi.linear_session_id && this.options.linearClient) {
+      try {
+        await this.options.linearClient.emitThought(
+          wi.linear_session_id,
+          "Started working on this"
+        );
+      } catch {}
+    }
+
     const executor = new PipelineExecutor(
       this.db,
       this.adapters,
@@ -374,6 +400,14 @@ export class Orchestrator {
         event_type: "run.completed",
         payload: { result: "succeeded" },
       });
+      if (wi.linear_session_id && this.options.linearClient) {
+        try {
+          await this.options.linearClient.emitComment(
+            wi.linear_session_id,
+            "Completed successfully"
+          );
+        } catch {}
+      }
       const updatedWi = this.db.getWorkItem(wi.id)!;
       this.transition(updatedWi, "completed");
       if (updatedWi.parent_work_item_id) {
@@ -394,6 +428,15 @@ export class Orchestrator {
         event_type: "run.failed",
         payload: this.buildRunFailedPayload(result.failureReason, attempt),
       });
+
+      if (wi.linear_session_id && this.options.linearClient) {
+        try {
+          await this.options.linearClient.emitComment(
+            wi.linear_session_id,
+            `Run failed: ${result.failureReason ?? "Unknown failure"}`
+          );
+        } catch {}
+      }
 
       const updatedWi = this.db.getWorkItem(wi.id)!;
       if (attempt < DEFAULT_MAX_RETRIES) {
