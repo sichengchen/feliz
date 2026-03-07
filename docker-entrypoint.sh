@@ -8,10 +8,14 @@ fi
 
 CONFIG_PATH="${FELIZ_CONFIG_PATH:-/home/feliz/.feliz/feliz.yml}"
 
-# --- Install Claude Code if missing (build-time install may have failed) ---
+# --- Install agent CLIs if missing (build-time install may have failed) ---
 if ! command -v claude >/dev/null 2>&1; then
   echo "Claude Code not found, installing..."
   gosu feliz bash -c 'curl -fsSL https://claude.ai/install.sh | bash' 2>&1 || echo "[WARN] Claude Code installation failed"
+fi
+if ! command -v codex >/dev/null 2>&1; then
+  echo "Codex not found, installing..."
+  npm install -g @openai/codex 2>&1 || echo "[WARN] Codex installation failed"
 fi
 
 # --- Preflight checks ---
