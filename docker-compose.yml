@@ -9,6 +9,10 @@ services:
       - ~/.ssh/known_hosts:/home/feliz/.ssh/known_hosts:ro
       - feliz-data:/data/feliz
       - feliz-config:/home/feliz/.feliz
+      - feliz-agent-local:/home/feliz/.local
+      - feliz-npm-global:/home/feliz/.npm-global
+      - feliz-claude-config:/home/feliz/.claude
+      - feliz-codex-config:/home/feliz/.codex
     environment:
       - SSH_AUTH_SOCK=/ssh-agent
       - LINEAR_OAUTH_TOKEN
@@ -23,3 +27,7 @@ services:
 volumes:
   feliz-data:
   feliz-config:
+  feliz-agent-local:
+  feliz-npm-global:
+  feliz-claude-config:
+  feliz-codex-config:
