@@ -234,6 +234,141 @@ describe("Orchestrator", () => {
     expect(wi!.orchestration_state).toBe("completed");
   });
 
+  test("writes scratchpad after each pipeline step", async () => {
+    db.upsertWorkItem({
+      id: "wi-ctx",
+      linear_id: "l-ctx",
+      linear_identifier: "T-99",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Context test",
+      description: "Test context flow",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+
+    const adapter: AgentAdapter = {
+      name: "test-agent",
+      isAvailable: async () => true,
+      execute: mock(async () => ({
+        status: "succeeded" as const,
+        exitCode: 0,
+        stdout: "I implemented the feature",
+        stderr: "",
+        filesChanged: ["src/foo.ts"],
+      })),
+      cancel: mock(async () => {}),
+    };
+
+    const pipeline: PipelineDefinition = {
+      phases: [
+        {
+          name: "implement",
+          steps: [
+            { name: "run", agent: "test-agent", success: { always: true } },
+          ],
+        },
+      ],
+    };
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": adapter },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+    await orch.dispatchQueued("proj-1", pipeline, TEST_WORK_DIR);
+
+    // Scratchpad file should exist for the step
+    const { readdirSync } = require("fs");
+    const runs = readdirSync(join(TEST_SCRATCH, "test"));
+    expect(runs.length).toBeGreaterThan(0);
+    const runDir = join(TEST_SCRATCH, "test", runs[0]);
+    const files = readdirSync(runDir);
+    expect(files.some((f: string) => f.includes("implement-run"))).toBe(true);
+  });
+
+  test("writes run context to workdir before step execution", async () => {
+    db.upsertWorkItem({
+      id: "wi-ctx2",
+      linear_id: "l-ctx2",
+      linear_identifier: "T-100",
+      project_id: "proj-1",
+      parent_work_item_id: null,
+      title: "Context delivery test",
+      description: "",
+      state: "Todo",
+      priority: 1,
+      labels: [],
+      blocker_ids: [],
+      orchestration_state: "queued",
+    });
+
+    // Add some history so there's context to write
+    db.appendHistory({
+      id: "h-pre",
+      project_id: "proj-1",
+      work_item_id: "wi-ctx2",
+      run_id: null,
+      event_type: "issue.discovered",
+      payload: { title: "Context delivery test" },
+    });
+
+    let workDirAtExecution = "";
+    const adapter: AgentAdapter = {
+      name: "test-agent",
+      isAvailable: async () => true,
+      execute: mock(async (params: { workDir: string }) => {
+        workDirAtExecution = params.workDir;
+        // Check context files exist when agent runs
+        const contextRunDir = join(params.workDir, ".feliz", "context", "run");
+        if (!existsSync(contextRunDir)) {
+          return {
+            status: "failed" as const,
+            exitCode: 1,
+            stdout: "No context dir",
+            stderr: "",
+            filesChanged: [],
+          };
+        }
+        const historyFile = join(contextRunDir, "history.md");
+        if (!existsSync(historyFile)) {
+          return {
+            status: "failed" as const,
+            exitCode: 1,
+            stdout: "No history file",
+            stderr: "",
+            filesChanged: [],
+          };
+        }
+        return {
+          status: "succeeded" as const,
+          exitCode: 0,
+          stdout: "done",
+          stderr: "",
+          filesChanged: [],
+        };
+      }),
+      cancel: mock(async () => {}),
+    };
+
+    const orch = new Orchestrator(
+      db,
+      { "test-agent": adapter },
+      makeRepoConfig(),
+      TEST_SCRATCH,
+      5
+    );
+    await orch.dispatchQueued("proj-1", makeSimplePipeline(), TEST_WORK_DIR);
+
+    const wi = db.getWorkItem("wi-ctx2");
+    expect(wi!.orchestration_state).toBe("completed");
+  });
+
   test("does not dispatch queued work item when blocker linear issue is not terminal", async () => {
     db.upsertWorkItem({
       id: "wi-blocker",
