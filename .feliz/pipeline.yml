@@ -1,0 +1,31 @@
+phases:
+  - name: implement
+    steps:
+      - name: run
+        agent: claude-code
+        prompt: WORKFLOW.md
+        success:
+          command: bun test
+        max_attempts: 3
+
+  - name: review_cycle
+    repeat:
+      max: 3
+      on_exhaust: fail
+    steps:
+      - name: review
+        agent: codex
+        prompt: .feliz/prompts/review.md
+        success:
+          agent_verdict: approved
+      - name: fix_review
+        agent: codex
+        prompt: .feliz/prompts/fix_review.md
+        success:
+          command: bun test
+
+  - name: publish
+    steps:
+      - name: create_pr
+        agent: claude-code
+        prompt: .feliz/prompts/publish.md

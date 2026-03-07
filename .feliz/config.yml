@@ -1,0 +1,10 @@
+agent:
+  adapter: claude-code
+
+specs:
+  enabled: true
+  directory: specs
+
+gates:
+  test_command: bun test
+  lint_command: bunx --bun tsc --noEmit
