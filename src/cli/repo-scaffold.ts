@@ -9,6 +9,7 @@ import {
 import { loadPipelineConfig, loadRepoConfig } from "../config/loader.ts";
 import { newId } from "../id.ts";
 import type { AgentAdapter } from "../agents/adapter.ts";
+import { injectGitHubToken } from "../workspace/manager.ts";
 
 export function repoHasFelizConfig(repoPath: string): boolean {
   return existsSync(join(repoPath, ".feliz", "config.yml"));
@@ -156,7 +157,15 @@ export function gitCommitAndPush(repoPath: string, branch: string): void {
       `Failed to commit: ${commit.stderr.toString()}`
     );
   }
-  const push = Bun.spawnSync(["git", "push", "origin", branch], {
+  // Get the remote URL and inject GITHUB_TOKEN for HTTPS push auth
+  const remoteResult = Bun.spawnSync(
+    ["git", "remote", "get-url", "origin"],
+    { cwd: repoPath }
+  );
+  const remoteUrl = remoteResult.stdout.toString().trim();
+  const pushUrl = injectGitHubToken(remoteUrl, process.env.GITHUB_TOKEN);
+
+  const push = Bun.spawnSync(["git", "push", pushUrl, branch], {
     cwd: repoPath,
   });
   if (push.exitCode !== 0) {
