@@ -21,6 +21,8 @@ feliz context history <project># Show history events for a project
 
 feliz agent list               # List installed agents and availability
 
+feliz auth linear              # Authenticate with Linear (OAuth flow)
+
 feliz config validate          # Validate feliz.yml and all .feliz/ configs
 feliz config show              # Print resolved configuration
 
@@ -59,6 +61,52 @@ Returns non-zero when doctor fails or a critical smoke check fails.
 
 - `--json`: prints JSON report payload
 - `--out <path>`: writes JSON report to disk
+
+## `feliz auth linear` — Linear OAuth flow
+
+Performs the full Linear OAuth2 authorization code flow:
+
+1. User runs `feliz auth linear`
+2. Prompts for `--client-id` and `--client-secret` (or accepts them as flags)
+3. Starts a temporary local HTTP server on port 8374 (configurable via `--port`)
+4. Prints an authorization URL and attempts to open it in the browser
+5. Waits for the OAuth callback with `?code=...`
+6. Exchanges the code for an access token via `POST https://api.linear.app/oauth/token`
+7. Verifies the token by querying `{ viewer { id name } }` via the Linear GraphQL API
+8. Writes the token into `feliz.yml` (as `$LINEAR_OAUTH_TOKEN` env var reference or literal, user's choice)
+9. Returns a success HTML page to the browser and shuts down the temporary server
+
+### Authorization URL
+
+```
+https://linear.app/oauth/authorize
+  ?client_id=CLIENT_ID
+  &redirect_uri=http://localhost:8374/auth/callback
+  &response_type=code
+  &scope=app:mentionable,app:assignable,read,write,issues:create
+  &actor=app
+```
+
+`actor=app` installs Feliz as a bot identity (not a personal user).
+
+### Flags
+
+- `--client-id <id>` — Linear OAuth app client ID (or prompt interactively)
+- `--client-secret <secret>` — Linear OAuth app client secret (or prompt interactively)
+- `--port <port>` — callback server port (default 8374)
+
+### Error handling
+
+- Port bind failure: print clear error
+- Token exchange failure: print the error from Linear's response
+- Viewer query failure after token exchange: warn but still save the token
+- Timeout: 5 minutes with no callback received
+
+### Config file handling
+
+- If `feliz.yml` doesn't exist, create it with a minimal template plus the token
+- If `feliz.yml` exists, update only `linear.oauth_token` — preserve everything else
+- Uses `yaml` package (`parse` + `stringify`) for read-modify-write
 
 ## First-run experience
 
