@@ -161,10 +161,21 @@ export class FelizServer {
           repoConfig,
           join(this.config.storage.data_dir, "scratchpad"),
           this.config.agent.max_concurrent,
-          { workspace: this.workspace }
+          { workspace: this.workspace, linearClient: this.linearClient }
         );
 
-        if (result.command?.command === "cancel") {
+        if (result.signal === "stop") {
+          orchestrator.cancelWorkItem(result.workItemId);
+          const wi = this.db.getWorkItem(result.workItemId);
+          if (wi?.linear_session_id) {
+            try {
+              await this.linearClient.emitError(
+                wi.linear_session_id,
+                "Cancelled by user"
+              );
+            } catch {}
+          }
+        } else if (result.command?.command === "cancel") {
           orchestrator.cancelWorkItem(result.workItemId);
         } else {
           const wi = this.db.getWorkItem(result.workItemId);
@@ -201,7 +212,7 @@ export class FelizServer {
           repoConfig,
           join(this.config.storage.data_dir, "scratchpad"),
           this.config.agent.max_concurrent,
-          { workspace: this.workspace }
+          { workspace: this.workspace, linearClient: this.linearClient }
         );
 
         const workDir = this.workspace.getRepoPath(projConfig.name);
