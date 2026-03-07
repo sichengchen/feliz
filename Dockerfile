@@ -48,9 +48,12 @@ RUN mkdir -p /home/feliz/.ssh && \
     chmod 700 /home/feliz/.ssh && \
     chown -R feliz:feliz /home/feliz/.ssh
 
-# Create data, config, and bun global dirs owned by feliz
-RUN mkdir -p /data/feliz /home/feliz/.feliz /home/feliz/.bun && \
-    chown -R feliz:feliz /data/feliz /home/feliz/.feliz /home/feliz/.bun
+# Create data, config, and npm global dirs owned by feliz
+RUN mkdir -p /data/feliz /home/feliz/.feliz /home/feliz/.npm-global && \
+    chown -R feliz:feliz /data/feliz /home/feliz/.feliz /home/feliz/.npm-global
+
+ENV NPM_CONFIG_PREFIX="/home/feliz/.npm-global"
+ENV PATH="/home/feliz/.npm-global/bin:$PATH"
 
 WORKDIR /app
 
