@@ -60,21 +60,26 @@ services:
   feliz:
     build: .
     env_file: .env
+    ports:
+      - "3421:3421"   # Linear webhook
+      - "8374:8374"   # OAuth callback for `feliz auth linear`
     volumes:
       - ${SSH_AUTH_SOCK}:/ssh-agent:ro
       - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
       - feliz-data:/data/feliz
-      - feliz-agent-creds:/root
+      - feliz-config:/root/.feliz
     environment:
       - SSH_AUTH_SOCK=/ssh-agent
       - LINEAR_OAUTH_TOKEN
       - GITHUB_TOKEN
-      - ANTHROPIC_API_KEY
+      - GH_TOKEN=${GITHUB_TOKEN}
       - GIT_AUTHOR_NAME
       - GIT_AUTHOR_EMAIL
+      - ANTHROPIC_API_KEY
+      - OPENAI_API_KEY
 volumes:
   feliz-data:
-  feliz-agent-creds:
+  feliz-config:
 ```
 
 **Alternative approaches**:
