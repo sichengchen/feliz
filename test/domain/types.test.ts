@@ -35,6 +35,7 @@ describe("Domain Types", () => {
       priority: 1,
       labels: ["feliz"],
       blocker_ids: [],
+      linear_session_id: null,
       orchestration_state: "unclaimed",
       created_at: new Date(),
       updated_at: new Date(),
