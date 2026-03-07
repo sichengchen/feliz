@@ -1,9 +1,10 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { FelizServer } from "../src/server.ts";
-import { existsSync, rmSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { FelizConfig } from "../src/config/types.ts";
 import type { AgentAdapter } from "../src/agents/adapter.ts";
+import { AUTH_CODE_FILE, clearAuthCode } from "../src/cli/auth.ts";
 
 const TEST_DATA_DIR = "/tmp/feliz-server-test-data";
 const TEST_WORKSPACE_DIR = "/tmp/feliz-server-test-workspace";
@@ -212,6 +213,55 @@ agent:
     expect(wi.orchestration_state).toBe("spec_review");
 
     await server.stop();
+  });
+
+  test("handles /auth/callback by writing code to file", async () => {
+    clearAuthCode();
+
+    const server = new FelizServer(makeConfig());
+    const anyServer = server as any;
+
+    // Start the HTTP server only (not the full start() which enters tick loop)
+    const httpServer = Bun.serve({
+      port: 0,
+      fetch: anyServer.handleRequest.bind(anyServer),
+    });
+
+    try {
+      const resp = await fetch(
+        `http://localhost:${httpServer.port}/auth/callback?code=srv_test_code`
+      );
+      expect(resp.status).toBe(200);
+      const html = await resp.text();
+      expect(html).toContain("Authorization complete");
+
+      expect(existsSync(AUTH_CODE_FILE)).toBe(true);
+      expect(readFileSync(AUTH_CODE_FILE, "utf-8")).toBe("srv_test_code");
+    } finally {
+      httpServer.stop();
+      await server.stop();
+      clearAuthCode();
+    }
+  });
+
+  test("returns 400 for /auth/callback without code", async () => {
+    const server = new FelizServer(makeConfig());
+    const anyServer = server as any;
+
+    const httpServer = Bun.serve({
+      port: 0,
+      fetch: anyServer.handleRequest.bind(anyServer),
+    });
+
+    try {
+      const resp = await fetch(
+        `http://localhost:${httpServer.port}/auth/callback`
+      );
+      expect(resp.status).toBe(400);
+    } finally {
+      httpServer.stop();
+      await server.stop();
+    }
   });
 
   test("Given a work item in decomposing When tickCycle runs Then it advances to decompose_review", async () => {

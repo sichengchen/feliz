@@ -17,6 +17,7 @@ import { existsSync, readFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { writePidFile, removePidFile } from "./pid.ts";
 import type { AgentSessionEvent } from "./linear/webhook.ts";
+import { writeAuthCode, AUTH_CALLBACK_HTML } from "./cli/auth.ts";
 
 export class FelizServer {
   private config: FelizConfig;
@@ -95,56 +96,7 @@ export class FelizServer {
     // Start webhook HTTP server
     this.httpServer = Bun.serve({
       port: this.config.webhook.port,
-      fetch: async (req) => {
-        const url = new URL(req.url);
-        if (req.method === "POST" && url.pathname === "/webhook/linear") {
-          try {
-            const event = (await req.json()) as AgentSessionEvent;
-            if (event.type !== "AgentSession") {
-              return new Response("ignored", { status: 200 });
-            }
-
-            const projectConfig = this.findProjectForIssue(event);
-            if (!projectConfig) {
-              return new Response("no matching project", { status: 200 });
-            }
-
-            const project = this.db.getProjectByName(projectConfig.name);
-            if (!project) {
-              return new Response("project not registered", { status: 200 });
-            }
-
-            const result = await this.webhookHandler.handleEvent(event, project.id);
-
-            // Process the new work item through orchestration
-            const repoConfig = this.loadRepoConfigForProject(projectConfig.name);
-            const pipeline = this.loadPipelineForProject(projectConfig.name, repoConfig);
-            const orchestrator = new Orchestrator(
-              this.db,
-              this.adapters,
-              repoConfig,
-              join(this.config.storage.data_dir, "scratchpad"),
-              this.config.agent.max_concurrent,
-              { workspace: this.workspace }
-            );
-
-            const wi = this.db.getWorkItem(result.workItemId);
-            if (wi && wi.orchestration_state === "unclaimed") {
-              orchestrator.processNewIssue(wi.id);
-            }
-
-            return new Response(JSON.stringify({ ok: true, workItemId: result.workItemId }), {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            });
-          } catch (e: any) {
-            this.logger.error(`Webhook error: ${e.message}`);
-            return new Response("error", { status: 500 });
-          }
-        }
-
-        return new Response("not found", { status: 404 });
-      },
+      fetch: (req) => this.handleRequest(req),
     });
 
     // Main tick loop
@@ -163,6 +115,67 @@ export class FelizServer {
     removePidFile(this.config.storage.data_dir);
     this.logger.info("Feliz server stopping");
     this.db.close();
+  }
+
+  async handleRequest(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+
+    if (url.pathname === "/auth/callback") {
+      const code = url.searchParams.get("code");
+      if (!code) {
+        return new Response("Missing code parameter", { status: 400 });
+      }
+      writeAuthCode(code);
+      return new Response(AUTH_CALLBACK_HTML, {
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+
+    if (req.method === "POST" && url.pathname === "/webhook/linear") {
+      try {
+        const event = (await req.json()) as AgentSessionEvent;
+        if (event.type !== "AgentSession") {
+          return new Response("ignored", { status: 200 });
+        }
+
+        const projectConfig = this.findProjectForIssue(event);
+        if (!projectConfig) {
+          return new Response("no matching project", { status: 200 });
+        }
+
+        const project = this.db.getProjectByName(projectConfig.name);
+        if (!project) {
+          return new Response("project not registered", { status: 200 });
+        }
+
+        const result = await this.webhookHandler.handleEvent(event, project.id);
+
+        const repoConfig = this.loadRepoConfigForProject(projectConfig.name);
+        const orchestrator = new Orchestrator(
+          this.db,
+          this.adapters,
+          repoConfig,
+          join(this.config.storage.data_dir, "scratchpad"),
+          this.config.agent.max_concurrent,
+          { workspace: this.workspace }
+        );
+
+        const wi = this.db.getWorkItem(result.workItemId);
+        if (wi && wi.orchestration_state === "unclaimed") {
+          orchestrator.processNewIssue(wi.id);
+        }
+
+        return new Response(JSON.stringify({ ok: true, workItemId: result.workItemId }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (e: any) {
+        this.logger.error(`Webhook error: ${e.message}`);
+        return new Response("error", { status: 500 });
+      }
+    }
+
+    return new Response("not found", { status: 404 });
   }
 
   private async tickCycle(): Promise<void> {

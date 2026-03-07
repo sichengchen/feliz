@@ -296,6 +296,34 @@ describe("waitForCallback", () => {
     // Clean up the first server (it will time out, catch the rejection)
     promise.catch(() => {});
   });
+
+  test("falls back to polling code file when port is in use", async () => {
+    const { waitForCallback, AUTH_CODE_FILE, writeAuthCode, clearAuthCode } =
+      await import("../../src/cli/auth.ts");
+
+    clearAuthCode();
+
+    // Occupy a port to simulate the main server running
+    const port = 18377;
+    const blocker = Bun.serve({
+      port,
+      fetch: () => new Response("occupied"),
+    });
+
+    try {
+      const promise = waitForCallback(port, 3000);
+
+      // Simulate the main server writing the code file
+      await new Promise((r) => setTimeout(r, 200));
+      writeAuthCode("polled_code_456");
+
+      const code = await promise;
+      expect(code).toBe("polled_code_456");
+    } finally {
+      blocker.stop();
+      clearAuthCode();
+    }
+  });
 });
 
 describe("runAuth", () => {

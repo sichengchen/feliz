@@ -1,10 +1,31 @@
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
-import { dirname } from "path";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, unlinkSync } from "fs";
+import { dirname, join } from "path";
+import { tmpdir } from "os";
 import { parse, stringify } from "yaml";
 
 const SCOPES = "app:mentionable,app:assignable,read,write,issues:create";
 export const DEFAULT_PORT = 3421;
 const TIMEOUT_MS = 5 * 60 * 1000;
+const POLL_INTERVAL_MS = 500;
+
+export const AUTH_CODE_FILE = join(tmpdir(), "feliz-auth-code");
+
+export function writeAuthCode(code: string): void {
+  writeFileSync(AUTH_CODE_FILE, code, "utf-8");
+}
+
+export function clearAuthCode(): void {
+  if (existsSync(AUTH_CODE_FILE)) unlinkSync(AUTH_CODE_FILE);
+}
+
+export const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
+<html>
+<head><title>Feliz</title></head>
+<body>
+<h1>Authorization complete</h1>
+<p>You can close this tab.</p>
+</body>
+</html>`;
 
 export function buildAuthorizationUrl(
   clientId: string,
@@ -205,50 +226,75 @@ export async function runAuth(
 }
 
 export function waitForCallback(port: number, timeoutMs: number = TIMEOUT_MS): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      server.stop();
-      reject(new Error("OAuth callback timed out after 5 minutes"));
-    }, timeoutMs);
+  clearAuthCode();
 
-    const server = Bun.serve({
-      port,
-      fetch(req) {
-        const url = new URL(req.url);
-        if (url.pathname === "/auth/callback") {
-          const code = url.searchParams.get("code");
-          if (!code) {
-            return new Response("Missing code parameter", { status: 400 });
-          }
+  try {
+    return waitViaServer(port, timeoutMs);
+  } catch (e: any) {
+    if (e?.code === "EADDRINUSE") {
+      console.log(`Port ${port} is in use (Feliz server running). Waiting for callback via server...`);
+      return waitViaPolling(timeoutMs);
+    }
+    throw e;
+  }
+}
 
-          clearTimeout(timeout);
-          // Defer server stop to after response is sent
-          setTimeout(() => server.stop(), 100);
-
-          resolve(code);
-
-          return new Response(
-            `<!DOCTYPE html>
-<html>
-<head><title>Feliz</title></head>
-<body>
-<h1>Authorization complete</h1>
-<p>You can close this tab.</p>
-</body>
-</html>`,
-            {
-              headers: { "Content-Type": "text/html" },
-            }
-          );
+function waitViaServer(port: number, timeoutMs: number): Promise<string> {
+  const server = Bun.serve({
+    port,
+    fetch(req) {
+      const url = new URL(req.url);
+      if (url.pathname === "/auth/callback") {
+        const code = url.searchParams.get("code");
+        if (!code) {
+          return new Response("Missing code parameter", { status: 400 });
         }
 
-        return new Response("Not found", { status: 404 });
-      },
-      error() {
-        clearTimeout(timeout);
-        reject(new Error(`Failed to start callback server on port ${port}`));
-        return new Response("Internal error", { status: 500 });
-      },
-    });
+        setTimeout(() => server.stop(), 100);
+        resolveCallback(code);
+
+        return new Response(AUTH_CALLBACK_HTML, {
+          headers: { "Content-Type": "text/html" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    },
+  });
+
+  let resolveCallback: (code: string) => void;
+  let rejectCallback: (err: Error) => void;
+
+  const promise = new Promise<string>((resolve, reject) => {
+    resolveCallback = resolve;
+    rejectCallback = reject;
+  });
+
+  const timeout = setTimeout(() => {
+    server.stop();
+    rejectCallback(new Error("OAuth callback timed out after 5 minutes"));
+  }, timeoutMs);
+
+  return promise.finally(() => clearTimeout(timeout));
+}
+
+function waitViaPolling(timeoutMs: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeoutMs;
+
+    const poll = setInterval(() => {
+      if (existsSync(AUTH_CODE_FILE)) {
+        const code = readFileSync(AUTH_CODE_FILE, "utf-8").trim();
+        if (code) {
+          clearInterval(poll);
+          clearAuthCode();
+          resolve(code);
+        }
+      }
+      if (Date.now() > deadline) {
+        clearInterval(poll);
+        reject(new Error("OAuth callback timed out after 5 minutes"));
+      }
+    }, POLL_INTERVAL_MS);
   });
 }
