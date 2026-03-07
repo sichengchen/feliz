@@ -40,6 +40,12 @@ You can also pass credentials as flags:
 bun run src/cli/index.ts auth linear --client-id <id> --client-secret <secret>
 ```
 
+Since Linear blocks `localhost` callback URLs, provide your public URL:
+
+```bash
+bun run src/cli/index.ts auth linear --callback-url https://<your-host>:3421/auth/callback
+```
+
 Or set the token manually:
 
 ```bash

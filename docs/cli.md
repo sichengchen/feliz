@@ -118,19 +118,20 @@ feliz context show BAC-123
 
 ### Authentication
 
-**`auth linear`** — Authenticate with Linear via OAuth2. Starts a temporary local server, opens the browser for authorization, exchanges the code for a token, verifies the bot identity, and writes the token to `feliz.yml`.
+**`auth linear`** — Authenticate with Linear via OAuth2. Starts a temporary local server on the webhook port, opens the browser for authorization, exchanges the code for a token, verifies the bot identity, and writes the token to `feliz.yml`.
 
 ```bash
 feliz auth linear
 feliz auth linear --client-id <id> --client-secret <secret>
-feliz auth linear --port 9000
+feliz auth linear --callback-url https://my-host.com/auth/callback
 ```
 
 | Flag | Description |
 |---|---|
 | `--client-id <id>` | Linear OAuth app client ID (or prompt interactively) |
 | `--client-secret <secret>` | Linear OAuth app client secret (or prompt interactively) |
-| `--port <port>` | Callback server port (default: `8374`) |
+| `--port <port>` | Callback server port (default: `3421`, same as webhook port) |
+| `--callback-url <url>` | Public callback URL for Linear redirect (default: `http://localhost:<port>/auth/callback`). Use this when exposing Feliz to the internet, since Linear blocks `localhost` callback URLs. |
 
 After authentication, the command prints next steps for configuring Linear webhooks.
 

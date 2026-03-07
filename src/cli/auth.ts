@@ -3,14 +3,13 @@ import { dirname } from "path";
 import { parse, stringify } from "yaml";
 
 const SCOPES = "app:mentionable,app:assignable,read,write,issues:create";
-const DEFAULT_PORT = 8374;
+export const DEFAULT_PORT = 3421;
 const TIMEOUT_MS = 5 * 60 * 1000;
 
 export function buildAuthorizationUrl(
   clientId: string,
-  callbackPort: number
+  redirectUri: string
 ): string {
-  const redirectUri = `http://localhost:${callbackPort}/auth/callback`;
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -145,9 +144,9 @@ export async function runAuth(
   if (!clientSecret) throw new Error("Client Secret is required");
 
   const port = parseInt(flags.port ?? String(DEFAULT_PORT), 10);
-  const redirectUri = `http://localhost:${port}/auth/callback`;
+  const redirectUri = flags["callback-url"] ?? `http://localhost:${port}/auth/callback`;
 
-  const authUrl = buildAuthorizationUrl(clientId, port);
+  const authUrl = buildAuthorizationUrl(clientId, redirectUri);
   console.log("");
   console.log("Open this URL to authorize Feliz with Linear:");
   console.log("");
@@ -200,7 +199,7 @@ export async function runAuth(
   console.log("  1. Configure Linear webhooks:");
   console.log("     - Go to your Linear OAuth app settings");
   console.log("     - Enable webhooks and select 'Agent session events'");
-  console.log("     - Set webhook URL to: https://<your-host>:3421/webhook/linear");
+  console.log(`     - Set webhook URL to: https://<your-host>:${port}/webhook/linear`);
   console.log("  2. Add a project: feliz project add");
   console.log("  3. Start Feliz:   feliz start");
 }

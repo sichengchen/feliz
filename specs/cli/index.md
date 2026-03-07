@@ -68,7 +68,7 @@ Performs the full Linear OAuth2 authorization code flow:
 
 1. User runs `feliz auth linear`
 2. Prompts for `--client-id` and `--client-secret` (or accepts them as flags)
-3. Starts a temporary local HTTP server on port 8374 (configurable via `--port`)
+3. Starts a temporary local HTTP server on the webhook port (default 3421, configurable via `--port`)
 4. Prints an authorization URL and attempts to open it in the browser
 5. Waits for the OAuth callback with `?code=...`
 6. Exchanges the code for an access token via `POST https://api.linear.app/oauth/token`
@@ -81,7 +81,7 @@ Performs the full Linear OAuth2 authorization code flow:
 ```
 https://linear.app/oauth/authorize
   ?client_id=CLIENT_ID
-  &redirect_uri=http://localhost:8374/auth/callback
+  &redirect_uri=https://<your-host>:3421/auth/callback
   &response_type=code
   &scope=app:mentionable,app:assignable,read,write,issues:create
   &actor=app
@@ -89,11 +89,14 @@ https://linear.app/oauth/authorize
 
 `actor=app` installs Feliz as a bot identity (not a personal user).
 
+The callback server uses the same port as webhooks (default 3421), so only one port needs to be exposed. Linear blocks `localhost` callback URLs — use `--callback-url` to specify a public URL.
+
 ### Flags
 
 - `--client-id <id>` — Linear OAuth app client ID (or prompt interactively)
 - `--client-secret <secret>` — Linear OAuth app client secret (or prompt interactively)
-- `--port <port>` — callback server port (default 8374)
+- `--port <port>` — callback server port (default 3421, same as webhook port)
+- `--callback-url <url>` — public callback URL for the OAuth redirect (default: `http://localhost:<port>/auth/callback`)
 
 ### Error handling
 

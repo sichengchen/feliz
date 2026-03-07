@@ -20,7 +20,8 @@ git clone git@github.com:sichengchen/feliz.git && cd feliz
 bun install
 
 # Authenticate with Linear (runs OAuth flow, opens browser)
-bun run src/cli/index.ts auth linear
+# Use --callback-url with your public URL (Linear blocks localhost)
+bun run src/cli/index.ts auth linear --callback-url https://<your-host>:3421/auth/callback
 
 export GITHUB_TOKEN="ghp_..."
 
