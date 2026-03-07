@@ -155,7 +155,7 @@ describe("writeRepoScaffoldWithAgent", () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.reason).toContain("not available");
+    expect(result.reason).toContain("not available (not installed or not authenticated)");
   });
 
   test("includes stderr in failure reason when agent execution fails", async () => {

@@ -5,8 +5,13 @@ export class CodexAdapter implements AgentAdapter {
   private runningProcesses = new Map<string, { kill: () => void }>();
 
   async isAvailable(): Promise<boolean> {
-    const result = Bun.spawnSync(["codex", "--version"]);
-    return result.exitCode === 0;
+    const version = Bun.spawnSync(["codex", "--version"]);
+    if (version.exitCode !== 0) return false;
+
+    if (process.env.OPENAI_API_KEY) return true;
+
+    const auth = Bun.spawnSync(["codex", "login", "status"]);
+    return auth.exitCode === 0;
   }
 
   buildArgs(params: AgentRunParams): string[] {

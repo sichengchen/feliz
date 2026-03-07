@@ -105,7 +105,7 @@ export async function writeRepoScaffoldWithAgent(
 ): Promise<AgentScaffoldResult> {
   const available = await adapter.isAvailable();
   if (!available) {
-    return { success: false, reason: `adapter "${adapterName}" is not available` };
+    return { success: false, reason: `"${adapterName}" is not available (not installed or not authenticated)` };
   }
 
   const prompt = buildAgentScaffoldPrompt(answers);

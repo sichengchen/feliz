@@ -5,8 +5,22 @@ export class ClaudeCodeAdapter implements AgentAdapter {
   private runningProcesses = new Map<string, { kill: () => void }>();
 
   async isAvailable(): Promise<boolean> {
-    const result = Bun.spawnSync(["claude", "--version"]);
-    return result.exitCode === 0;
+    const version = Bun.spawnSync(["claude", "--version"]);
+    if (version.exitCode !== 0) return false;
+
+    if (process.env.ANTHROPIC_API_KEY) return true;
+
+    const auth = Bun.spawnSync(["claude", "auth", "status"], {
+      env: { ...process.env, CLAUDECODE: "" },
+    });
+    if (auth.exitCode !== 0) return false;
+
+    try {
+      const status = JSON.parse(auth.stdout.toString());
+      return status.loggedIn === true;
+    } catch {
+      return false;
+    }
   }
 
   buildArgs(params: AgentRunParams): string[] {
