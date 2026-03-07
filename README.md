@@ -19,7 +19,9 @@ Or manually:
 git clone git@github.com:sichengchen/feliz.git && cd feliz
 bun install
 
-export LINEAR_OAUTH_TOKEN="lin_oauth_..."
+# Authenticate with Linear (runs OAuth flow, opens browser)
+bun run src/cli/index.ts auth linear
+
 export GITHUB_TOKEN="ghp_..."
 
 bun run src/cli/index.ts init    # interactive setup
@@ -29,8 +31,12 @@ bun run src/cli/index.ts start   # start daemon
 Or with Docker:
 
 ```bash
-cp .env.example .env   # fill in credentials
+cp .env.example .env   # fill in credentials (see .env.example for guidance)
 docker compose up -d --build
+
+# The entrypoint runs preflight checks and auto-generates feliz.yml
+# Then add a project:
+docker compose exec feliz bun run src/cli/index.ts project add
 ```
 
 ## CLI
@@ -52,6 +58,7 @@ feliz run list                 List recent runs
 feliz run show <id>            Show run details
 feliz run retry <identifier>   Retry a failed item
 
+feliz auth linear              Authenticate with Linear (OAuth)
 feliz agent list               Show available agents
 
 feliz context history <proj>   Project history

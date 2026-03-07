@@ -31,6 +31,7 @@ projects:
 | Field | Default | Description |
 |---|---|---|
 | `linear.oauth_token` | — | Required. Supports `$ENV_VAR` syntax. |
+| `linear.app_user_id` | — | Bot user ID from Linear (set automatically by `feliz auth linear`). |
 | `webhook.port` | `3421` | Port for receiving Linear webhook events. |
 | `storage.data_dir` | `~/.feliz` | SQLite database and artifacts. |
 | `storage.workspace_root` | `{data_dir}/workspaces` | Git clones and worktrees. |
@@ -97,10 +98,12 @@ The default prompt template is `WORKFLOW.md` in the repo root. Templates support
 
 | Variable | Purpose |
 |---|---|
-| `LINEAR_OAUTH_TOKEN` | Linear OAuth access |
-| `GITHUB_TOKEN` | PR creation and repo access |
-| `ANTHROPIC_API_KEY` | Claude Code agent |
-| `OPENAI_API_KEY` | Codex agent |
+| `LINEAR_OAUTH_TOKEN` | Linear OAuth access (obtain via `feliz auth linear`) |
+| `GITHUB_TOKEN` | PR creation and repo access (needs `repo` scope) |
+| `GIT_AUTHOR_NAME` | Git commit author name (e.g., `Feliz Bot`) |
+| `GIT_AUTHOR_EMAIL` | Git commit author email |
+| `ANTHROPIC_API_KEY` | Claude Code agent (fallback; prefer `claude login`) |
+| `OPENAI_API_KEY` | Codex agent (fallback; prefer `codex login`) |
 
 ## Validation
 
