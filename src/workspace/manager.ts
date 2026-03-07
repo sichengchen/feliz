@@ -1,5 +1,20 @@
 import { join } from "path";
 
+export function injectGitHubToken(repoUrl: string, token?: string): string {
+  if (!token) return repoUrl;
+  try {
+    const url = new URL(repoUrl);
+    if (url.protocol === "https:" && url.hostname === "github.com") {
+      url.username = "x-access-token";
+      url.password = token;
+      return url.toString();
+    }
+  } catch {
+    // Not a valid URL (e.g. SSH git@... syntax)
+  }
+  return repoUrl;
+}
+
 export function sanitizeIdentifier(id: string): string {
   return id.replace(/[^A-Za-z0-9._-]/g, "_");
 }
@@ -30,7 +45,8 @@ export class WorkspaceManager {
 
   async cloneRepo(projectName: string, repoUrl: string): Promise<string> {
     const repoPath = this.getRepoPath(projectName);
-    const result = Bun.spawnSync(["git", "clone", repoUrl, repoPath]);
+    const cloneUrl = injectGitHubToken(repoUrl, process.env.GITHUB_TOKEN);
+    const result = Bun.spawnSync(["git", "clone", cloneUrl, repoPath]);
     if (result.exitCode !== 0) {
       throw new Error(
         `Failed to clone repo: ${result.stderr.toString()}`

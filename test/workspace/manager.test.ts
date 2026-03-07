@@ -118,6 +118,38 @@ describe("WorkspaceManager", () => {
   });
 });
 
+describe("injectGitHubToken", () => {
+  test("injects token into HTTPS GitHub URL", () => {
+    const { injectGitHubToken } = require("../../src/workspace/manager.ts");
+    const result = injectGitHubToken("https://github.com/org/repo.git", "ghp_abc123");
+    expect(result).toBe("https://x-access-token:ghp_abc123@github.com/org/repo.git");
+  });
+
+  test("injects token into HTTPS GitHub URL without .git suffix", () => {
+    const { injectGitHubToken } = require("../../src/workspace/manager.ts");
+    const result = injectGitHubToken("https://github.com/org/repo", "ghp_abc123");
+    expect(result).toBe("https://x-access-token:ghp_abc123@github.com/org/repo");
+  });
+
+  test("returns original URL for SSH URLs", () => {
+    const { injectGitHubToken } = require("../../src/workspace/manager.ts");
+    const result = injectGitHubToken("git@github.com:org/repo.git", "ghp_abc123");
+    expect(result).toBe("git@github.com:org/repo.git");
+  });
+
+  test("returns original URL when no token provided", () => {
+    const { injectGitHubToken } = require("../../src/workspace/manager.ts");
+    const result = injectGitHubToken("https://github.com/org/repo.git", undefined);
+    expect(result).toBe("https://github.com/org/repo.git");
+  });
+
+  test("returns original URL for non-GitHub HTTPS URLs", () => {
+    const { injectGitHubToken } = require("../../src/workspace/manager.ts");
+    const result = injectGitHubToken("https://gitlab.com/org/repo.git", "ghp_abc123");
+    expect(result).toBe("https://gitlab.com/org/repo.git");
+  });
+});
+
 describe("sanitizeIdentifier edge cases", () => {
   test("replaces spaces", () => {
     expect(sanitizeIdentifier("hello world")).toBe("hello_world");
