@@ -6,8 +6,9 @@ Install Feliz, configure your first project, and verify everything works.
 
 - [Bun](https://bun.sh)
 - Git
-- Linear OAuth token ([Settings > API](https://linear.app/settings/api))
-- GitHub CLI (`gh auth login`)
+- A [Linear OAuth app](https://linear.app/settings/api/applications/new) (with `actor=app` for bot identity)
+- GitHub personal access token with `repo` scope ([create one](https://github.com/settings/tokens))
+- GitHub CLI (`gh auth login`) or `GITHUB_TOKEN` env var
 - A coding agent CLI: `claude` or `codex`
 
 ## Install
@@ -18,11 +19,45 @@ cd feliz
 bun install
 ```
 
-## Set credentials
+## Authenticate with Linear
+
+Run the OAuth flow to obtain and store your Linear token:
+
+```bash
+bun run src/cli/index.ts auth linear
+```
+
+This will:
+1. Prompt for your Linear OAuth app's client ID and client secret
+2. Open the Linear authorization page in your browser
+3. Exchange the authorization code for an access token
+4. Verify the bot identity via `viewer { id name }`
+5. Write the token to `~/.feliz/feliz.yml`
+
+You can also pass credentials as flags:
+
+```bash
+bun run src/cli/index.ts auth linear --client-id <id> --client-secret <secret>
+```
+
+Or set the token manually:
 
 ```bash
 export LINEAR_OAUTH_TOKEN="lin_oauth_..."
-export GITHUB_TOKEN="ghp_..."
+```
+
+## Set up Linear webhooks
+
+After authenticating, configure webhooks in your Linear OAuth app settings:
+
+1. Go to your Linear OAuth app settings
+2. Enable webhooks and select **Agent session events**
+3. Set the webhook URL to `https://<your-host>:3421/webhook/linear`
+
+## Set GitHub credentials
+
+```bash
+export GITHUB_TOKEN="ghp_..."  # needs `repo` scope
 ```
 
 ## Create config
@@ -33,7 +68,7 @@ Run the interactive wizard:
 bun run src/cli/index.ts init
 ```
 
-This prompts for your Linear OAuth token, webhook port, a project name, repo URL, and Linear project — then writes `~/.feliz/feliz.yml`.
+This prompts for a project name, repo URL, and Linear project — then writes `~/.feliz/feliz.yml`.
 
 Alternatively, run `start` without a config to scaffold a template you can edit manually.
 
@@ -77,14 +112,21 @@ bash scripts/e2e-real.sh --env-file scripts/e2e.env
 
 ```bash
 cp .env.example .env
-# fill in credentials
+# fill in credentials (see .env.example for guidance)
 docker compose up -d --build
 ```
+
+The Docker entrypoint automatically:
+- Runs preflight checks (tools, auth, env vars)
+- Generates `feliz.yml` from environment variables if none exists
+- Validates the configuration before starting
 
 Run CLI commands inside the container:
 
 ```bash
 docker compose exec feliz bun run src/cli/index.ts status
+docker compose exec feliz bun run src/cli/index.ts project add
+docker compose exec feliz bun run src/cli/index.ts auth linear
 ```
 
 ## Next steps

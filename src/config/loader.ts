@@ -54,9 +54,10 @@ export function loadFelizConfig(yamlContent: string): FelizConfig {
   return {
     linear: {
       oauth_token: resolveEnvVars(linear.oauth_token as string),
+      ...(linear.app_user_id ? { app_user_id: linear.app_user_id as string } : {}),
     },
     webhook: {
-      port: (webhook.port as number) || 3000,
+      port: (webhook.port as number) || 3421,
     },
     tick: {
       interval_ms: (tick.interval_ms as number) || 5000,

@@ -29,6 +29,7 @@ Commands:
   agent list               List installed agents
   context history <proj>   Show history events
   context show <item>      Show context snapshot
+  auth linear              Authenticate with Linear (OAuth flow)
   e2e doctor               Validate local E2E prerequisites
   e2e smoke                Run automated E2E smoke checks
 
@@ -488,6 +489,16 @@ async function main() {
     const config = loadConfig(configPath);
     const server = new FelizServer(config);
     await server.start();
+    return;
+  }
+
+  if (cmd.command === "auth") {
+    if (cmd.subcommand !== "linear") {
+      console.error("Usage: feliz auth linear [--client-id <id>] [--client-secret <secret>] [--port <port>]");
+      process.exit(1);
+    }
+    const { runAuth } = await import("./auth.ts");
+    await runAuth(configPath, cmd.flags);
     return;
   }
 

@@ -116,6 +116,24 @@ feliz context history backend-api
 feliz context show BAC-123
 ```
 
+### Authentication
+
+**`auth linear`** — Authenticate with Linear via OAuth2. Starts a temporary local server, opens the browser for authorization, exchanges the code for a token, verifies the bot identity, and writes the token to `feliz.yml`.
+
+```bash
+feliz auth linear
+feliz auth linear --client-id <id> --client-secret <secret>
+feliz auth linear --port 9000
+```
+
+| Flag | Description |
+|---|---|
+| `--client-id <id>` | Linear OAuth app client ID (or prompt interactively) |
+| `--client-secret <secret>` | Linear OAuth app client secret (or prompt interactively) |
+| `--port <port>` | Callback server port (default: `8374`) |
+
+After authentication, the command prints next steps for configuring Linear webhooks.
+
 ### E2E Testing
 
 **`e2e doctor`** — Check prerequisites (tools, auth, config).

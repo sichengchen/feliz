@@ -42,6 +42,7 @@ projects:
     expect(config.tick.interval_ms).toBe(5000);
     expect(config.storage.data_dir).toContain(".feliz");
     expect(config.agent.default).toBe("claude-code");
+    expect(config.webhook.port).toBe(3421);
     expect(config.agent.max_concurrent).toBe(5);
     expect(config.projects).toHaveLength(1);
     expect(config.projects[0]!.name).toBe("backend");
